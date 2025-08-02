@@ -1,71 +1,113 @@
-import p5 from "p5";
-
 /**
  * @typedef { () => boolean } SketchCbckMousePressed
  */
 
-/** @type { HTMLCanvasElement } */
-const s_divSketchParent = document.querySelector("div.sketch#sketch0");
+/** @type { HTMLDivElement } */ const s_divSketch = document.querySelector("div.sketch#sketch0");
 
-new class Sketch extends p5 {
+// #region Variables.
 
-	// #region Fields.
+// #region Sketch.
+/** @type { HTMLCanvasElement } */ let sketchCanvas;
+/** @type { p5.Renderer | undefined } */ let sketchRenderer;
+/** @type { boolean } */ let sketchKeepAttemptingFullscreen = true;
+/** @type { HTMLCanvasElement } */ let sketchElementCanvasParent = s_divSketch;
 
-	/** @type { p5.Renderer | undefined } */ sketchRenderer;
-	/** @type { HTMLCanvasElement } */ sketchElementCanvasParent;
-	/** @type { boolean } */ sketchKeepAttemptingFullscreen = true;
+// #region Callback data.
 
-	// #region Callback data.
+/** @type { Array<SketchCbckMousePressed> } */ const sketchCbcksMousePressed = [];
+/** @type { SketchCbckMousePressed } */ let sketchCbckMousePressedKeepAttemptingFullscreen;
+/** @type { Set<SketchCbckMousePressed> } */ const sketchCbcksMousePressedStillAlive = new Set();
 
-	/** @type { Array<SketchCbckMousePressed> } */ sketchCbcksMousePressed = [];
-	/** @type { SketchCbckMousePressed } */ sketchCbckMousePressedKeepAttemptingFullscreen;
-	/** @type { Set<SketchCbckMousePressed> } */ sketchCbcksMousePressedStillAlive = new Set();
+// #endregion
 
-	// #endregion
+// #endregion
 
-	// #endregion
+// #region RPG.
+const rpgPlayer = {
 
-	// #region Constructor.
-	constructor() {
-		super(p => p, s_divSketchParent);
-		this.sketchElementCanvasParent = s_divSketchParent;
-	}
+	/** @type { p5.Vector | undefined }) */
+	pos: undefined,
+	speed: 3,
 
+};
 
-	setup() {
-		// this.sketchRenderer = super.createCanvas(super.windowWidth, super.windowHeight, super.WEBGL);
-		this.sketchRenderer = super.createCanvas(200, 200, super.WEBGL);
-		super.resizeCanvas(super.windowWidth, super.windowHeight);
+// #endregion
 
-		this.sketchCbckMousePressedKeepAttemptingFullscreen = () =>
-			this.sketchKeepAttemptingFullscreen && super.fullscreen(true);
+// #endregion
 
-		this.sketchCbcksMousePressed.push(this.sketchCbckMousePressedKeepAttemptingFullscreen);
-	}
+window.setup = function () {
+	sketchRenderer = createCanvas(200, 200, WEBGL, s_divSketch);
+	sketchCanvas = s_divSketch.querySelector("canvas");
+	sketchCanvasResizeFull();
 
-	draw() {
-		super.background(0);
-	}
+	sketchCbckMousePressedKeepAttemptingFullscreen = () =>
+		sketchKeepAttemptingFullscreen && fullscreen(true);
 
-	mousePressed() {
-		this.sketchCbcksMousePressedStillAlive.clear();
+	sketchCbcksMousePressed.push(sketchCbckMousePressedKeepAttemptingFullscreen);
 
-		for (const cbck of this.sketchCbcksMousePressed) {
+	rpgSetup();
+}
 
-			if (cbck()) {
+window.rpgSetup = function () {
+	rpgPlayer.pos = createVector(20, 20, 0);
+}
 
-				this.sketchCbcksMousePressedStillAlive.push(cbck);
+window.draw = function () {
+	translate(-0.5 * width, -0.5 * height);
+	background(
 
-			}
+		50 * abs(
+			sin(
+				0.001 * millis()
+			)
+		)
+
+	);
+	fill(0);
+
+	camera();
+	perspective();
+
+	rotateZ(rpgPlayer.pos.z);
+	circle(rpgPlayer.pos.x, rpgPlayer.pos.y, 10);
+}
+
+window.mousePressed = function () {
+	sketchCbcksMousePressedStillAlive.clear();
+
+	for (const cbck of sketchCbcksMousePressed) {
+
+		if (cbck()) {
+
+			sketchCbcksMousePressedStillAlive.push(cbck);
 
 		}
 
-		this.sketchCbcksMousePressed.filter(cbck => this.sketchCbcksMousePressedStillAlive.has(cbck));
 	}
 
-	sketchResumeAttemptingFullscreen() {
-		this.sketchKeepAttemptingFullscreen = true;
-		this.sketchCbcksMousePressed.push(this.sketchCbckMousePressedKeepAttemptingFullscreen);
-	}
+	sketchCbcksMousePressed.filter(cbck => sketchCbcksMousePressedStillAlive.has(cbck));
+}
 
-};
+window.windowResized = function () {
+	sketchCanvasResizeFull();
+}
+
+window.sketchCanvasResizeFull = function () {
+	sketchCanvas.style.width = `100%`;
+	sketchCanvas.style.height = `100%`;
+}
+
+/**
+ * @param { number } p_width In pixels!
+ * @param { number } p_height In pixels!
+*/
+window.sketchCanvasResize = function (p_width, p_height) {
+	sketchCanvas.style.width = `${p_width}px`;
+	sketchCanvas.style.height = `${p_height}px`;
+}
+
+window.sketchResumeAttemptingFullscreen = function () {
+	sketchKeepAttemptingFullscreen = true;
+	sketchCbcksMousePressed.push(sketchCbckMousePressedKeepAttemptingFullscreen);
+}
+
