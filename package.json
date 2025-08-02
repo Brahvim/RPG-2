@@ -1,0 +1,13 @@
+{
+  "type": "module",
+  "license": "ISC",
+  "dependencies": {
+    "p5": "^2.0.3",
+    "vite": "^7.0.4"
+  },
+  "description": "",
+  "version": "1.0.0",
+  "main": "index.mjs",
+  "author": "@Brahvim",
+  "name": "my-rpg-test"
+}
