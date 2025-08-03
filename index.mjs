@@ -10,232 +10,282 @@ const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 new class Sketch extends p5 {
 
 	// #region Fields.
+	sketch = {
 
-	// #region Sketch.
+		cbcks: {
 
-	/** @type { p5.Renderer | undefined } */ sketchRenderer;
-	/** @type { HTMLCanvasElement } */ sketchElementCanvasParent;
-	/** @type { boolean } */ sketchKeepAttemptingFullscreen = true;
-	/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ sketchWebGlCtx;
+			mousePressed: {
 
-	// #region Callback data.
+				/**
+				 * Cached here for future access.
+				 * @type { Set<SketchCbckMousePressed> }
+				 * */
+				stillAlive: new Set(),
 
-	/** @type { Array<SketchCbckMousePressed> } */ sketchCbcksMousePressed = [];
-	/** @type { Set<SketchCbckMousePressed> } */ sketchCbcksMousePressedStillAlive = new Set();
-	/** @type { SketchCbckMousePressed } */ sketchCbckMousePressedKeepAttemptingFullscreen = () => {
+				/** @type { Array<SketchCbckMousePressed> } */
+				active: [],
 
-		return this.sketchKeepAttemptingFullscreen && super.fullscreen(true);
-
-	};
-
-	// #endregion
-
-	// #endregion
-
-	// #region RPG.
-
-	/** @type { p5.Font } */ rpgFontSonoRegular = undefined;
-
-	rpgDialogueBox = {
-
-		/** @type { () => void } */ drawImpl: () => {
-
-			super.push();
-			this.sketchWebGlCtx.disable(WebGLRenderingContext.DEPTH_TEST);
-
-			super.translate(
-				-0.25 * super.width
-				// * -0.1
-				// * super.abs(
-				// 	super.sin(
-				// 		0.001 * super.millis()
-				// 	)
-				// )
-				,
-				0
-			);
-			super.rect(0, 0, super.width / 3, 80);
-			super.text("WEEEEEEEEEEEEEEEE!");
-
-			this.sketchWebGlCtx.enable(WebGLRenderingContext.DEPTH_TEST);
-			super.pop();
+			}
 
 		},
-		/** @type { () => void } */ draw: () => { },
 
-	};
+		fullscreen: {
 
-	rpgPlayer = {
+			/** @type { SketchCbckMousePressed } */
+			cbckMousePressed: () => {
 
-		/** @type { p5.Vector | undefined } */ velPosAngle: undefined,
-		/** @type { p5.Vector | undefined } */ posAngle: undefined,
-		/** @type { Set<number> } */ idsNpcsTouched: new Set(),
-		/** @type { () => void } */ readInputsImpl: () => {
+				return this.sketch.keepAttemptingFullscreen && this.fullscreen(true);
 
-			// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
-			// than via some callback that adds functions into a/an set/array to respond to movements.
+			},
 
-			if (super.keyIsDown("w") || super.keyIsDown("W")) {
+			/** @type { () => void } */
+			resumeAttemptingEveryClick: () => {
 
-				this.rpgPlayer.posAngle.y -= this.rpgPlayer.speed;
+				this.sketch.keepAttemptingFullscreen = true;
+				this.sketch.cbcks.mousePressed.active.push(this.sketch.cbckMousePressedKeepAttemptingFullscreen);
 
-			}
-			else if (super.keyIsDown("a") || super.keyIsDown("A")) {
-
-				this.rpgPlayer.posAngle.x -= this.rpgPlayer.speed;
-
-			}
-			else if (super.keyIsDown("s") || super.keyIsDown("S")) {
-
-				this.rpgPlayer.posAngle.y += this.rpgPlayer.speed;
-
-			}
-			else if (super.keyIsDown("d") || super.keyIsDown("D")) {
-
-				this.rpgPlayer.posAngle.x += this.rpgPlayer.speed;
-
-			}
-
-			this.rpgPlayer.posAngle.add(this.rpgPlayer.velPosAngle);
+			},
 
 		},
-		/** @type { () => void } */ readInputs: () => { },
-		/** @type { number } */ speed: 3,
-		/** @type { number } */ size: 20,
+
+		/** @type { p5.Renderer } */
+		renderer: undefined,
+
+		/** @type { WebGL2RenderingContext | WebGLRenderingContext } */
+		webGlCtx: undefined,
+
+		/** @type { HTMLCanvasElement } */
+		elementCanvasParent: undefined,
+
+		/** @type { boolean } */
+		keepAttemptingFullscreen: true,
 
 	};
 
-	rpgNpcs = {
+	rpg = {
 
-		/** @type { number[] } */ idsConversation: [],
-		/** @type { string[][] } */ conversations: [],
-		/** @type { p5.Vector[] } */ posAngles: [],
-		/** @type { number[] } */ idsDialogue: [],
+		setup: () => {
 
-	};
+			this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
+			// this.rpg.dialogueBox.draw = this.rpg.dialogueBox.drawImpl;
+			this.rpg.player.velPosAngle = this.createVector();
+			this.rpg.player.posAngle = this.createVector();
+			this.textFont(this.rpg.fontSonoRegular);
 
-	// #endregion
-
-	// #region Constructor.
-	constructor() {
-		super(p => p, s_divSketchParent);
-		this.sketchElementCanvasParent = s_divSketchParent;
-	}
-
-	// #region RPG methods.
-
-	rpgSetup() {
-		super.loadFont("/Sono-Regular.ttf", (p_font) => {
-
-			this.rpgFontSonoRegular = p_font;
-			super.textFont(this.rpgFontSonoRegular);
-
-		});
-
-		this.rpgPlayer.velPosAngle = super.createVector();
-		this.rpgPlayer.posAngle = super.createVector();
-
-		this.rpgNpcCreate(
-			super.createVector(40, -40),
-			[
-
+			this.rpg.npcCreate(
+				this.createVector(100, 0),
+				// All conversations:
 				[
 
-					"Ti's a beautiful day!",
+					// First conversation:
+					[
+
+						// First dialogue:
+						"Ti's a beautiful day!",
+
+					],
 
 				],
+			);
+		},
 
-			],
-		);
-	}
+		/**
+		 * @param { p5.Vector } p_pos
+		 * @param { string[] } p_conversations
+		 */
+		npcCreate: (p_pos, p_conversations) => {
 
-	/**
-	 * @param { p5.Vector } p_pos
-	 * @param { string[] } p_conversations
-	 */
-	rpgNpcCreate(p_pos, p_conversations) {
-		this.rpgNpcs.idsDialogue.push(0);
-		this.rpgNpcs.posAngles.push(p_pos);
-		this.rpgNpcs.idsConversation.push(0);
-		this.rpgNpcs.conversations.push(p_conversations);
-	}
+			this.rpg.npcs.idsDialogue.push(0);
+			this.rpg.npcs.posAngles.push(p_pos);
+			this.rpg.npcs.idsConversation.push(0);
+			this.rpg.npcs.conversations.push(p_conversations);
 
+		},
+
+		/** @type { p5.Font } */
+		fontSonoRegular: undefined,
+
+		dialogueBox: {
+
+			/** @type { () => void } */
+			drawImpl: () => {
+
+				this.push();
+				this.translate(0, this.height / 8);
+				const fade = 255 * this.rpg.dialogueBox.fade;
+				this.sketch.webGlCtx.disable(WebGLRenderingContext.DEPTH_TEST);
+
+				const rr = 20;
+				const rh = 80;
+				const rw = this.width / 3;
+
+				// #region Rectangle.
+				this.push();
+
+				this.rectMode(this.CENTER);
+				this.fill(127, fade);
+				this.noStroke();
+
+				this.rect(0, 0, rw, rh, rr, rr, rr, rr);
+
+				this.pop();
+				// #endregion
+
+				// #region Text.
+				this.textSize(this.rpg.dialogueBox.textSize);
+				this.fill(255, fade);
+				this.noStroke();
+
+				this.text(
+					this.rpg.dialogueBox.conversation[this.rpg.dialogueBox.idDialogue],
+					-rw / 2.25,
+					-rh / 6
+				);
+				// #endregion
+
+				this.sketch.webGlCtx.enable(WebGLRenderingContext.DEPTH_TEST);
+				this.pop();
+
+			},
+
+			/** @type { () => void } */
+			draw: () => { },
+
+			/** @type { string[] } */
+			conversation: [""],
+
+			/** @type { number } */
+			idDialogue: 0,
+
+			/** @type { number } */
+			textSize: 12,
+
+			/** @type { number } */
+			fade: 0.5,
+
+		},
+
+		player: {
+
+			/** @type { Set<number> } */
+			idsNpcsTouched: new Set(),
+
+			/** @type { () => void } */
+			readInputsImpl: () => {
+
+				// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
+				// than via some callback that adds functions into a/an set/array to respond to movements.
+
+				if (this.keyIsDown(87)) {
+
+					this.rpg.player.posAngle.y -= this.rpg.player.speed;
+
+				}
+				else if (this.keyIsDown(65)) {
+
+					this.rpg.player.posAngle.x -= this.rpg.player.speed;
+
+				}
+				else if (this.keyIsDown(83)) {
+
+					this.rpg.player.posAngle.y += this.rpg.player.speed;
+
+				}
+				else if (this.keyIsDown(68)) {
+
+					this.rpg.player.posAngle.x += this.rpg.player.speed;
+
+				}
+
+				// this.rpg.player.posAngle.add(this.rpg.player.velPosAngle);
+
+			},
+
+			/** @type { () => void } */
+			readInputs: () => { },
+
+			/** @type { p5.Vector } */
+			posAngle: undefined,
+
+			/** @type { p5.Vector } */
+			velPosAngle: undefined,
+
+			/** @type { number } */
+			size: 20,
+
+			/** @type { number } */
+			speed: 3,
+
+		},
+
+		npcs: {
+
+			/** @type { number[] } */
+			idsConversation: [],
+
+			/** @type { string[][] } */
+			conversations: [],
+
+			/** @type { p5.Vector[] } */
+			posAngles: [],
+
+			/** @type { number[] } */
+			idsDialogue: [],
+
+		},
+
+	};
 	// #endregion
 
-	setup() {
-		this.sketchRenderer = super.createCanvas(window.innerWidth, window.innerHeight, super.WEBGL);
-		this.sketchCbcksMousePressed.push(this.sketchCbckMousePressedKeepAttemptingFullscreen);
-
-		this.sketchCanvas = this.sketchElementCanvasParent.querySelector("canvas");
-		this.sketchWebGlCtx = this.sketchRenderer.GL;
-
-		// this.sketchCanvasResizeFull();
-		this.rpgSetup();
-	}
-
 	draw() {
-		super.background(0);
-		// super.translate(
-		// 	-0.5 * super.width,
-		// 	-0.5 * super.height,
-		// );
+		this.background(0);
 
-		// Ain't these the defaults?!:
-		// super.perspective(
-		// 	2 * super.atan(super.height / 2 / 800),
-		// 	super.width / super.height,
-		// 	80,
-		// 	8_000
-		// );
+		// Heck, my values work exactly LIKE the defaults!
+		this.perspective(
+			70,
+			this.width / this.height,
+			0.01,
+			10_000
+		); // (Okay, their FOV IS different and I can't find it for some reason.)
 
-		// // Heck, my values work exactly LIKE the defaults!
-		// super.perspective(
-		// 	// 70,
-		// 	// super.width / super.height,
-		// 	// 0.01,
-		// 	// 10_000
-		// ); // (Okay, their FOV IS different and I can't find it for some reason.)
-
-		super.camera(
-			0, 0, super.width / 4,
+		this.camera(
+			0, 0, this.width / 4,
 			0, 0, 0,
 			0, 1, 0
 		);
 
-		this.rpgPlayer.readInputs();
+		this.rpg.player.readInputs();
 
 		// #region Player render.
-
-		super.push();
-		super.rotateZ(this.rpgPlayer.posAngle.z);
-		super.noStroke();
-		super.fill(255);
-		super.square(
-			this.rpgPlayer.posAngle.x,
-			this.rpgPlayer.posAngle.y,
-			this.rpgPlayer.size,
+		this.push();
+		this.rotateZ(this.rpg.player.posAngle.z);
+		this.noStroke();
+		this.fill(255);
+		this.square(
+			this.rpg.player.posAngle.x,
+			this.rpg.player.posAngle.y,
+			this.rpg.player.size,
 		);
-		super.pop();
-
+		this.pop();
 		// #endregion
 
 		// #region Player-NPC collision.
+		this.rpg.player.idsNpcsTouched.clear();
+		let npc = 0;
 
-		this.rpgPlayer.idsNpcsTouched.clear();
+		for (let i = 0; i < this.rpg.npcs.posAngles.length; i++) {
 
-		for (let i = 0; i < this.rpgNpcs.posAngles.length; i++) {
-
-			const p = this.rpgNpcs.posAngles[i];
+			const p = this.rpg.npcs.posAngles[i];
 
 			const nLeft = p.x - (20 * 0.5);
 			const nRight = p.x + (20 * 0.5);
 			const nAbove = p.y - (20 * 0.5);
 			const nBelow = p.y + (20 * 0.5);
 
-			const pLeft = this.rpgPlayer.posAngle.x - (this.rpgPlayer.size * 0.5);
-			const pRight = this.rpgPlayer.posAngle.x + (this.rpgPlayer.size * 0.5);
-			const pAbove = this.rpgPlayer.posAngle.y - (this.rpgPlayer.size * 0.5);
-			const pBelow = this.rpgPlayer.posAngle.y + (this.rpgPlayer.size * 0.5);
+			const pLeft = this.rpg.player.posAngle.x - (this.rpg.player.size * 0.5);
+			const pRight = this.rpg.player.posAngle.x + (this.rpg.player.size * 0.5);
+			const pAbove = this.rpg.player.posAngle.y - (this.rpg.player.size * 0.5);
+			const pBelow = this.rpg.player.posAngle.y + (this.rpg.player.size * 0.5);
 
 			const overlapping = !(
 				pRight < nLeft
@@ -246,86 +296,91 @@ new class Sketch extends p5 {
 
 			if (overlapping) {
 
-				this.rpgPlayer.idsNpcsTouched.add(i);
+				this.rpg.player.idsNpcsTouched.add(i);
 
 			}
 
 		}
 
-		if (this.rpgPlayer.idsNpcsTouched.size !== 0) {
+		if (this.rpg.player.idsNpcsTouched.size !== 0) {
 
-			this.rpgPlayer.readInputs = () => { };
-			this.rpgDialogueBox.draw = this.rpgDialogueBox.drawImpl;
-
-		} else {
-
-			this.rpgPlayer.readInputs = this.rpgPlayer.readInputsImpl;
+			this.rpg.player.readInputs = () => { };
+			this.rpg.dialogueBox.draw = this.rpg.dialogueBox.drawImpl;
+			this.rpg.dialogueBox.conversation = this.rpg.npcs.conversations[npc];
 
 		}
-
+		// else {
+		//
+		// 	this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
+		//
+		// }
 		// #endregion
-
-		this.rpgDialogueBox.draw();
 
 		// #region NPC rendering.
-		super.push();
-		super.fill(255);
-		super.noStroke();
+		this.push();
+		this.fill(255);
+		this.noStroke();
 
-		for (const p of this.rpgNpcs.posAngles) {
+		for (const p of this.rpg.npcs.posAngles) {
 
-			super.push();
+			this.push();
 
-			super.rotateZ(p.z);
-			super.square(p.x, p.y, 20);
+			this.rotateZ(p.z);
+			this.square(p.x, p.y, 20);
 
-			super.pop();
+			this.pop();
 
 
 		}
 
-		super.pop();
+		this.pop();
 		// #endregion
+
+		this.rpg.dialogueBox.draw();
+	}
+
+	setup() {
+		this.sketch.renderer = this.createCanvas(window.innerWidth, window.innerHeight, this.WEBGL);
+		// this.sketch.cbcks.mousePressed.active.push(this.sketch.fullscreen.cbckMousePressed);
+		this.sketch.canvas = this.sketch.elementCanvasParent.querySelector("canvas");
+		this.sketch.webGlCtx = this.sketch.renderer.GL;
+		this.textFont(this.rpg.fontSonoRegular);
+		this.rpg.setup();
+	}
+
+	preload() {
+		this.loadFont("/Sono-Regular.ttf", (p_font) => {
+
+			this.rpg.fontSonoRegular = p_font;
+
+		});
+	}
+
+	constructor() {
+		super(p => p, s_divSketchParent);
+		this.sketch.elementCanvasParent = s_divSketchParent;
 	}
 
 	mousePressed() {
-		this.sketchCbcksMousePressedStillAlive.clear();
+		this.sketch.cbcks.mousePressed.stillAlive.clear();
 
-		for (const cbck of this.sketchCbcksMousePressed) {
+		for (const cbck of this.sketch.cbcks.mousePressed.active) {
 
 			if (cbck()) {
 
-				this.sketchCbcksMousePressedStillAlive.push(cbck);
+				this.sketch.cbcks.mousePressed.stillAlive.push(cbck);
 
 			}
 
 		}
 
-		this.sketchCbcksMousePressed.filter(cbck => this.sketchCbcksMousePressedStillAlive.has(cbck));
+		this.sketch.cbcks.mousePressed.active
+			= this.sketch.cbcks.mousePressed.active.filter(cbck =>
+				this.sketch.cbcks.mousePressed.stillAlive.has(cbck));
 	}
 
 	windowResized() {
-		super.resizeCanvas(window.innerWidth, window.innerHeight);
-		// this.sketchCanvasResize(super.windowWidth, super.windowHeight);
-	}
-
-	sketchCanvasResizeFull() {
-		this.sketchCanvas.style.width = `100%`;
-		this.sketchCanvas.style.height = `100%`;
-	}
-
-	sketchResumeAttemptingFullscreen() {
-		this.sketchKeepAttemptingFullscreen = true;
-		this.sketchCbcksMousePressed.push(this.sketchCbckMousePressedKeepAttemptingFullscreen);
-	}
-
-	/**
-	 * @param { number } p_width In pixels!
-	 * @param { number } p_height In pixels!
-	*/
-	sketchCanvasResize(p_width, p_height) {
-		this.sketchCanvas.style.width = `${p_width}px`;
-		this.sketchCanvas.style.height = `${p_height}px`;
+		this.resizeCanvas(window.innerWidth, window.innerHeight);
 	}
 
 };
