@@ -1,12 +1,11 @@
 import p5 from "p5";
 
-/**
- * @typedef { () => boolean } SketchCbckMousePressed
- */
-
 /** @type { HTMLCanvasElement } */
 const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 
+/**
+ * @typedef { () => boolean } SketchCbckWebEvent Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs!
+ */
 new class Sketch extends p5 {
 
 	// #region Fields.
@@ -14,24 +13,37 @@ new class Sketch extends p5 {
 
 		cbcks: {
 
+			keyPressed: {
+
+				/**
+				 * Cached here for future access.
+				 * @type { Set<SketchCbckWebEvent> }
+				 * */
+				stillAlive: new Set(),
+
+				/** @type { Array<SketchCbckWebEvent> } */
+				active: [],
+
+			},
+
 			mousePressed: {
 
 				/**
 				 * Cached here for future access.
-				 * @type { Set<SketchCbckMousePressed> }
+				 * @type { Set<SketchCbckWebEvent> }
 				 * */
 				stillAlive: new Set(),
 
-				/** @type { Array<SketchCbckMousePressed> } */
+				/** @type { Array<SketchCbckWebEvent> } */
 				active: [],
 
-			}
+			},
 
 		},
 
 		fullscreen: {
 
-			/** @type { SketchCbckMousePressed } */
+			/** @type { SketchCbckWebEvent } */
 			cbckMousePressed: () => {
 
 				return this.sketch.keepAttemptingFullscreen && this.fullscreen(true);
@@ -64,31 +76,6 @@ new class Sketch extends p5 {
 
 	rpg = {
 
-		setup: () => {
-
-			this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
-			// this.rpg.dialogueBox.draw = this.rpg.dialogueBox.drawImpl;
-			this.rpg.player.velPosAngle = this.createVector();
-			this.rpg.player.posAngle = this.createVector();
-			this.textFont(this.rpg.fontSonoRegular);
-
-			this.rpg.npcCreate(
-				this.createVector(100, 0),
-				// All conversations:
-				[
-
-					// First conversation:
-					[
-
-						// First dialogue:
-						"Ti's a beautiful day!",
-
-					],
-
-				],
-			);
-		},
-
 		/**
 		 * @param { p5.Vector } p_pos
 		 * @param { string[] } p_conversations
@@ -106,6 +93,33 @@ new class Sketch extends p5 {
 		fontSonoRegular: undefined,
 
 		dialogueBox: {
+
+			/** @type { SketchCbckWebEvent } */
+			cbckKeyPressed: () => {
+
+				if (this.keyCode !== 69) {
+
+					return false;
+
+				}
+
+				// alert(`${this.rpg.dialogueBox.idDialogue} >= ${this.rpg.dialogueBox.conversation.length - 1}`);
+
+				if (this.rpg.dialogueBox.idDialogue >= this.rpg.dialogueBox.conversation.length - 1) {
+
+					this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
+					this.rpg.npcs.collisionResponse = () => { };
+					this.rpg.dialogueBox.draw = () => { };
+					this.rpg.dialogueBox.active = false;
+
+					return false;
+
+				}
+
+				++this.rpg.dialogueBox.idDialogue;
+				return true;
+
+			},
 
 			/** @type { () => void } */
 			drawImpl: () => {
@@ -154,8 +168,12 @@ new class Sketch extends p5 {
 			/** @type { string[] } */
 			conversation: [""],
 
+			/** @type { boolean } */
+			active: false,
+
 			/** @type { number } */
 			idDialogue: 0,
+
 
 			/** @type { number } */
 			textSize: 12,
@@ -163,6 +181,31 @@ new class Sketch extends p5 {
 			/** @type { number } */
 			fade: 0.5,
 
+		},
+
+		setup: () => {
+
+			this.rpg.npcs.collisionResponse = this.rpg.npcs.collisionResponseOverworld;
+			this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
+			this.rpg.player.velPosAngle = this.createVector();
+			this.rpg.player.posAngle = this.createVector();
+			this.textFont(this.rpg.fontSonoRegular);
+
+			this.rpg.npcCreate(
+				this.createVector(100, 0),
+				// All conversations:
+				[
+
+					// First conversation:
+					[
+
+						// First dialogue:
+						"Ti's a beautiful day!",
+
+					],
+
+				],
+			);
 		},
 
 		player: {
@@ -220,6 +263,23 @@ new class Sketch extends p5 {
 
 		npcs: {
 
+			/**
+			 * @type { () => void }
+			 * @param { number } p_idNpcDetectedLast SoA index of the NPC touched last.
+			 */
+			collisionResponseOverworld: (p_idNpcDetectedLast) => {
+
+				this.rpg.dialogueBox.active = true;
+				this.rpg.player.readInputs = () => { };
+				this.rpg.dialogueBox.draw = this.rpg.dialogueBox.drawImpl;
+				this.sketch.cbcks.keyPressed.active.push(this.rpg.dialogueBox.cbckKeyPressed);
+				this.rpg.dialogueBox.conversation = this.rpg.npcs.conversations[p_idNpcDetectedLast];
+
+			},
+
+			/** @type { () => void } */
+			collisionResponse: () => { },
+
 			/** @type { number[] } */
 			idsConversation: [],
 
@@ -269,9 +329,9 @@ new class Sketch extends p5 {
 		this.pop();
 		// #endregion
 
-		// #region Player-NPC collision.
+		// #region Check collisions.
 		this.rpg.player.idsNpcsTouched.clear();
-		let npc = 0;
+		let idNpcDetectedLast = 0;
 
 		for (let i = 0; i < this.rpg.npcs.posAngles.length; i++) {
 
@@ -297,6 +357,7 @@ new class Sketch extends p5 {
 			if (overlapping) {
 
 				this.rpg.player.idsNpcsTouched.add(i);
+				idNpcDetectedLast = i;
 
 			}
 
@@ -304,16 +365,15 @@ new class Sketch extends p5 {
 
 		if (this.rpg.player.idsNpcsTouched.size !== 0) {
 
-			this.rpg.player.readInputs = () => { };
-			this.rpg.dialogueBox.draw = this.rpg.dialogueBox.drawImpl;
-			this.rpg.dialogueBox.conversation = this.rpg.npcs.conversations[npc];
+			console.log(this.rpg.npcs.collisionResponse);
+			this.rpg.npcs.collisionResponse(idNpcDetectedLast);
 
 		}
-		// else {
-		//
-		// 	this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
-		//
-		// }
+		else {
+
+			this.rpg.npcs.collisionResponse = this.rpg.npcs.collisionResponseOverworld;
+
+		}
 		// #endregion
 
 		// #region NPC rendering.
@@ -361,6 +421,24 @@ new class Sketch extends p5 {
 		this.sketch.elementCanvasParent = s_divSketchParent;
 	}
 
+	keyPressed() {
+		this.sketch.cbcks.keyPressed.stillAlive.clear();
+
+		for (const cbck of this.sketch.cbcks.keyPressed.active) {
+
+			if (cbck()) {
+
+				this.sketch.cbcks.keyPressed.stillAlive.add(cbck);
+
+			}
+
+		}
+
+		this.sketch.cbcks.keyPressed.active
+			= this.sketch.cbcks.keyPressed.active.filter(cbck =>
+				this.sketch.cbcks.keyPressed.stillAlive.has(cbck));
+	}
+
 	mousePressed() {
 		this.sketch.cbcks.mousePressed.stillAlive.clear();
 
@@ -368,7 +446,7 @@ new class Sketch extends p5 {
 
 			if (cbck()) {
 
-				this.sketch.cbcks.mousePressed.stillAlive.push(cbck);
+				this.sketch.cbcks.mousePressed.stillAlive.add(cbck);
 
 			}
 
