@@ -5,15 +5,13 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"args": [
-				"dev"
-			],
-			"type": "node",
-			"name": "Run vite",
-			"request": "launch",
-			"runtimeExecutable": "vite",
-			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "vite build",
+			"port": 6000,
+			"type": "firefox",
+			"request": "attach",
+			"webRoot": "${workspaceFolder}",
+			"name": "Attach Firefox Debugger",
+			"url": "http://192.168.43.227:8080/",
+			"preLaunchTask": "Start Full Dev Env",
 		},
 	],
 }

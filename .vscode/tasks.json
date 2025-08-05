@@ -4,18 +4,66 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"group": {
-				"kind": "build",
-				"isDefault": true
+			"type": "shell",
+			"label": "Vite Build",
+			"command": "npx vite build",
+			"options": {
+				"cwd": "${workspaceFolder}",
 			},
+			"presentation": {
+				"reveal": "silent",
+				"clear": true,
+				"close": true,
+			},
+		},
+		{
+			"type": "shell",
+			"isBackground": true,
+			"label": "Vite Dev",
+			"command": "npx vite dev",
+			"options": {
+				"cwd": "${workspaceFolder}",
+			},
+			"presentation": {
+				"reveal": "silent",
+				"clear": true,
+				"close": true,
+			},
+			"problemMatcher": {
+				"pattern": [
+					{
+						"file": 1,
+						"message": 3,
+						"location": 2,
+						"regexp": ".*",
+					},
+				],
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "vite v",
+					"endsPattern": "ready in .*",
+				},
+			},
+		},
+		{
 			"type": "shell",
 			"presentation": {
-				"reveal": "never",
-				"focus": false
+				"reveal": "silent",
+				"clear": true,
+				"close": true,
 			},
-			"problemMatcher": [],
-			"label": "vite build",
-			"command": "vite build",
-		}
-	],
+			"isBackground": true,
+			"label": "Start Firefox Debugger",
+			"command": "firefox --start-debugger-server 6000",
+		},
+		{
+			"dependsOn": [
+				"Vite Build",
+				"Vite Dev",
+				"Start Firefox Debugger",
+			],
+			"dependsOrder": "sequence",
+			"label": "Start Full Dev Env",
+		},
+	]
 }

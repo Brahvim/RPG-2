@@ -3,77 +3,59 @@ import p5 from "p5";
 /** @type { HTMLCanvasElement } */
 const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 
-/**
- * @typedef { () => boolean } SketchCbckWebEvent Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs!
- */
+/** @typedef { (...args: any[]) => boolean } SketchCbckWebEvent Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs! */
+class SketchCbckWebEventManager {
+
+	/** @type { SketchCbckWebEvent[] } */
+	active = [];
+
+	/**
+	* Cached here for future access.
+	* @type { Set<SketchCbckWebEvent> }
+	*/
+	pactive = new Set();
+
+	remove(...p_callbacks) {
+		for (const cbck of p_callbacks) {
+
+			const id = this.active.indexOf(cbck);
+
+			if (id != -1) {
+
+				this.active.splice(id, 1);
+
+			}
+
+		}
+	}
+
+	handleEvent(...p_eventArgs) {
+		if (this.active.length ? this.active : "") {
+
+			console.log(this.active);
+
+		}
+
+		this.pactive.clear();
+
+		for (const cbck of this.active) {
+
+			if (!cbck(p_eventArgs)) {
+
+				this.pactive.add(cbck);
+
+			}
+
+		}
+
+		this.active = this.active.filter(cbck => !this.pactive.has(cbck));
+	}
+
+};
+
 new class Sketch extends p5 {
 
 	// #region Fields.
-	sketch = {
-
-		cbcks: {
-
-			keyPressed: {
-
-				/**
-				 * Cached here for future access.
-				 * @type { Set<SketchCbckWebEvent> }
-				 * */
-				stillAlive: new Set(),
-
-				/** @type { Array<SketchCbckWebEvent> } */
-				active: [],
-
-			},
-
-			mousePressed: {
-
-				/**
-				 * Cached here for future access.
-				 * @type { Set<SketchCbckWebEvent> }
-				 * */
-				stillAlive: new Set(),
-
-				/** @type { Array<SketchCbckWebEvent> } */
-				active: [],
-
-			},
-
-		},
-
-		fullscreen: {
-
-			/** @type { SketchCbckWebEvent } */
-			cbckMousePressed: () => {
-
-				return this.sketch.keepAttemptingFullscreen && this.fullscreen(true);
-
-			},
-
-			/** @type { () => void } */
-			resumeAttemptingEveryClick: () => {
-
-				this.sketch.keepAttemptingFullscreen = true;
-				this.sketch.cbcks.mousePressed.active.push(this.sketch.cbckMousePressedKeepAttemptingFullscreen);
-
-			},
-
-		},
-
-		/** @type { p5.Renderer } */
-		renderer: undefined,
-
-		/** @type { WebGL2RenderingContext | WebGLRenderingContext } */
-		webGlCtx: undefined,
-
-		/** @type { HTMLCanvasElement } */
-		elementCanvasParent: undefined,
-
-		/** @type { boolean } */
-		keepAttemptingFullscreen: true,
-
-	};
-
 	rpg = {
 
 		/**
@@ -94,6 +76,8 @@ new class Sketch extends p5 {
 
 		dialogueBox: {
 
+			dialogueIsConvoLast: () => this.rpg.dialogueBox.idDialogue >= this.rpg.dialogueBox.conversation.length - 1,
+
 			/** @type { SketchCbckWebEvent } */
 			cbckKeyPressed: () => {
 
@@ -103,22 +87,19 @@ new class Sketch extends p5 {
 
 				}
 
-				// alert(`${this.rpg.dialogueBox.idDialogue} >= ${this.rpg.dialogueBox.conversation.length - 1}`);
+				if (this.rpg.dialogueBox.dialogueExitCheck()) {
 
-				if (this.rpg.dialogueBox.idDialogue >= this.rpg.dialogueBox.conversation.length - 1) {
+					++this.rpg.dialogueBox.idDialogue;
+					return true;
 
-					this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
-					this.rpg.npcs.collisionResponse = () => { };
-					this.rpg.dialogueBox.draw = () => { };
-					this.rpg.dialogueBox.active = false;
+				}
+				else {
 
-					return false;
+					this.rpg.dialogueBox.idDialogue = 0;
 
 				}
 
-				++this.rpg.dialogueBox.idDialogue;
-				return true;
-
+				return false;
 			},
 
 			/** @type { () => void } */
@@ -150,11 +131,11 @@ new class Sketch extends p5 {
 				this.fill(255, fade);
 				this.noStroke();
 
-				this.text(
-					this.rpg.dialogueBox.conversation[this.rpg.dialogueBox.idDialogue],
-					-rw / 2.25,
-					-rh / 6
-				);
+				const text = this.rpg.dialogueBox.conversation[this.rpg.dialogueBox.idDialogue];
+				const tw = -rw / 2.25;
+				const th = -rh / 6;
+
+				this.text(text, tw, th);
 				// #endregion
 
 				this.sketch.webGlCtx.enable(WebGLRenderingContext.DEPTH_TEST);
@@ -165,6 +146,25 @@ new class Sketch extends p5 {
 			/** @type { () => void } */
 			draw: () => { },
 
+			dialogueExitCheck: () => {
+
+				if (!this.rpg.dialogueBox.dialogueIsConvoLast()) {
+
+					return true;
+
+				}
+
+				this.sketch.cbcks.touchEnded.remove(this.rpg.player.touchControlsEndedResponseDialogueAdvance);
+				this.sketch.cbcks.keyPressed.remove(this.rpg.dialogueBox.cbckKeyPressed);
+				this.rpg.player.resumeAllMovementControls();
+				this.rpg.npcs.collisionResponse = () => { };
+				this.rpg.dialogueBox.draw = () => { };
+				this.rpg.dialogueBox.active = false;
+
+				return false;
+
+			},
+
 			/** @type { string[] } */
 			conversation: [""],
 
@@ -173,7 +173,6 @@ new class Sketch extends p5 {
 
 			/** @type { number } */
 			idDialogue: 0,
-
 
 			/** @type { number } */
 			textSize: 12,
@@ -185,11 +184,14 @@ new class Sketch extends p5 {
 
 		setup: () => {
 
+			this.sketch.cbcks.touchEnded.active.push(this.rpg.player.touchControlsEndedResponseFindDeltas);
 			this.rpg.npcs.collisionResponse = this.rpg.npcs.collisionResponseOverworld;
-			this.rpg.player.readInputs = this.rpg.player.readInputsImpl;
+			this.rpg.player.latestTouch = this.createVector();
 			this.rpg.player.velPosAngle = this.createVector();
 			this.rpg.player.posAngle = this.createVector();
+			this.rpg.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
+
 
 			this.rpg.npcCreate(
 				this.createVector(100, 0),
@@ -201,6 +203,23 @@ new class Sketch extends p5 {
 
 						// First dialogue:
 						"Ti's a beautiful day!",
+						"Is it not for you?",
+
+					],
+
+				],
+			);
+
+			this.rpg.npcCreate(
+				this.createVector(-50, -50),
+				// All conversations:
+				[
+
+					// First conversation:
+					[
+
+						// First dialogue:
+						"This world needs a few more things!",
 
 					],
 
@@ -210,11 +229,71 @@ new class Sketch extends p5 {
 
 		player: {
 
-			/** @type { Set<number> } */
-			idsNpcsTouched: new Set(),
+			touchControlsEndedResponseDialogueAdvance: () => {
 
-			/** @type { () => void } */
-			readInputsImpl: () => {
+				const deltas = this.rpg.player.latestTouch;
+
+				if (deltas.z > 10) {
+
+					return true;
+
+				}
+
+				if (this.rpg.dialogueBox.dialogueExitCheck()) {
+
+					++this.rpg.dialogueBox.idDialogue;
+					return true;
+
+				}
+
+				this.sketch.cbcks.touchEnded.remove(this.rpg.player.touchControlsEndedResponseDialogueAdvance);
+				this.sketch.cbcks.touchEnded.active.push(this.rpg.player.touchControlsEndedResponseMovement);
+				return true;
+
+			},
+
+			touchControlsEndedResponseFindDeltas: () => {
+
+				// this.rpg.player.latestTouch.x -= this.touches[0];
+				// this.rpg.player.latestTouch.y -= this.touches[0];
+				// this.rpg.player.latestTouch.z = this.rpg.player.latestTouch.x + this.rpg.player.latestTouch.y;
+
+				return true;
+
+			},
+
+			touchControlsEndedResponseMovement: () => {
+
+				const deltas = this.rpg.player.latestTouch;
+
+				if (deltas.z < 40) {
+
+					return true;
+
+				}
+
+				if (this.abs(deltas.x) > this.abs(deltas.y)) {
+
+					this.rpg.player.posAngle.x += (deltas.x > 0 ? 1 : -1) * this.rpg.player.speed;
+
+				} else {
+
+					this.rpg.player.posAngle.y += (deltas.y > 0 ? 1 : -1) * this.rpg.player.speed;
+
+				}
+
+				return true;
+
+			},
+
+			touchControlsStartedResponse: () => {
+
+				this.rpg.player.latestTouch.x = this.touches[0].x;
+				this.rpg.player.latestTouch.y = this.touches[0].y;
+
+			},
+
+			keyboardControlsImpl: () => {
 
 				// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
 				// than via some callback that adds functions into a/an set/array to respond to movements.
@@ -224,40 +303,56 @@ new class Sketch extends p5 {
 					this.rpg.player.posAngle.y -= this.rpg.player.speed;
 
 				}
-				else if (this.keyIsDown(65)) {
+				if (this.keyIsDown(65)) {
 
 					this.rpg.player.posAngle.x -= this.rpg.player.speed;
 
 				}
-				else if (this.keyIsDown(83)) {
+				if (this.keyIsDown(83)) {
 
 					this.rpg.player.posAngle.y += this.rpg.player.speed;
 
 				}
-				else if (this.keyIsDown(68)) {
+				if (this.keyIsDown(68)) {
 
 					this.rpg.player.posAngle.x += this.rpg.player.speed;
 
 				}
 
-				// this.rpg.player.posAngle.add(this.rpg.player.velPosAngle);
+			},
+
+			/** To be called in `Sketch::draw()`. */
+			keyboardMovementControls: () => { },
+
+			resumeAllMovementControls: () => {
+
+				this.rpg.player.keyboardMovementControls = this.rpg.player.keyboardControlsImpl;
+				this.sketch.cbcks.touchStarted.active.push(this.rpg.player.touchControlsEndedResponseMovement);
 
 			},
 
-			/** @type { () => void } */
-			readInputs: () => { },
+			pauseAllMovementControls: () => {
+
+				this.rpg.player.keyboardMovementControls = () => { };
+				this.sketch.cbcks.touchStarted.remove(this.rpg.player.touchControlsEndedResponseMovement);
+
+			},
 
 			/** @type { p5.Vector } */
-			posAngle: undefined,
+			latestTouch: undefined,
+
+			/** @type { Set<number> } */
+			idsNpcsTouched: new Set(),
 
 			/** @type { p5.Vector } */
 			velPosAngle: undefined,
 
-			/** @type { number } */
-			size: 20,
+			/** @type { p5.Vector } */
+			posAngle: undefined,
 
-			/** @type { number } */
 			speed: 3,
+
+			size: 20,
 
 		},
 
@@ -270,10 +365,15 @@ new class Sketch extends p5 {
 			collisionResponseOverworld: (p_idNpcDetectedLast) => {
 
 				this.rpg.dialogueBox.active = true;
-				this.rpg.player.readInputs = () => { };
+				this.rpg.player.pauseAllMovementControls();
+				this.rpg.npcs.collisionResponse = () => { };
 				this.rpg.dialogueBox.draw = this.rpg.dialogueBox.drawImpl;
 				this.sketch.cbcks.keyPressed.active.push(this.rpg.dialogueBox.cbckKeyPressed);
-				this.rpg.dialogueBox.conversation = this.rpg.npcs.conversations[p_idNpcDetectedLast];
+				this.sketch.cbcks.touchEnded.active.push(this.rpg.player.touchControlsEndedResponseDialogueAdvance);
+
+				const convosAllNpcLast = this.rpg.npcs.conversations[p_idNpcDetectedLast];
+				const idConvoCurrent = this.rpg.npcs.idsConversation[p_idNpcDetectedLast];
+				this.rpg.dialogueBox.conversation = convosAllNpcLast[idConvoCurrent];
 
 			},
 
@@ -295,6 +395,98 @@ new class Sketch extends p5 {
 		},
 
 	};
+
+	sketch = {
+
+		cbcks: {
+
+			keyTyped: new SketchCbckWebEventManager(),
+			keyPressed: new SketchCbckWebEventManager(),
+			keyReleased: new SketchCbckWebEventManager(),
+
+			touchEnded: new SketchCbckWebEventManager(),
+			touchMoved: new SketchCbckWebEventManager(),
+			touchStarted: new SketchCbckWebEventManager(),
+
+			windowResized: new SketchCbckWebEventManager(),
+
+			mouseMoved: new SketchCbckWebEventManager(),
+			mouseWheel: new SketchCbckWebEventManager(),
+			mousePressed: new SketchCbckWebEventManager(),
+			mouseClicked: new SketchCbckWebEventManager(),
+			mouseDragged: new SketchCbckWebEventManager(),
+			mouseReleased: new SketchCbckWebEventManager(),
+			doubleClicked: new SketchCbckWebEventManager(),
+
+		},
+
+		/**
+		 * @type { {
+		*
+		* x: number,
+		* y: number,
+		* id: number,
+		*
+		* }[]
+		* }
+		*/
+		ptouches: [],
+
+		window: {
+
+			oriLock: screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation || screen.orientation.lock,
+
+			cbckFullscreen: () => {
+
+				this.fullscreen(true);
+				return true;
+
+			},
+
+			cbckResizeCanvas: () => {
+
+				this.resizeCanvas(window.innerWidth, window.innerHeight);
+				return true;
+
+			},
+
+			pauseAttemptingResizeEveryResize: () => {
+
+				this.sketch.cbcks.windowResized.remove(this.sketch.window.cbckResizeCanvas);
+
+			},
+
+			resumeAttemptingResizeEveryResize: () => {
+
+				this.sketch.cbcks.windowResized.active.push(this.sketch.window.cbckResizeCanvas);
+
+			},
+
+			pauseAttemptingFullscreenEveryPress: () => {
+
+				this.sketch.cbcks.touchStarted.remove(this.sketch.window.cbckFullscreen);
+				this.sketch.cbcks.mousePressed.remove(this.sketch.window.cbckFullscreen);
+
+			},
+
+			resumeAttemptingFullscreenEveryPress: () => {
+
+				this.sketch.cbcks.touchStarted.active.push(this.sketch.window.cbckFullscreen);
+				this.sketch.cbcks.mousePressed.active.push(this.sketch.window.cbckFullscreen);
+
+			},
+
+		},
+
+		/** @type { p5.Renderer } */ renderer: undefined,
+
+		/** @type { HTMLCanvasElement } */ canvas: undefined,
+
+		/** @type { HTMLDivElement } */ elementCanvasParent: undefined,
+
+		/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ webGlCtx: undefined,
+
+	};
 	// #endregion
 
 	draw() {
@@ -314,7 +506,8 @@ new class Sketch extends p5 {
 			0, 1, 0
 		);
 
-		this.rpg.player.readInputs();
+		this.sketch.ptouches = this.touches;
+		this.rpg.player.keyboardMovementControls();
 
 		// #region Player render.
 		this.push();
@@ -365,7 +558,6 @@ new class Sketch extends p5 {
 
 		if (this.rpg.player.idsNpcsTouched.size !== 0) {
 
-			console.log(this.rpg.npcs.collisionResponse);
 			this.rpg.npcs.collisionResponse(idNpcDetectedLast);
 
 		}
@@ -400,11 +592,21 @@ new class Sketch extends p5 {
 	}
 
 	setup() {
+
+
+		if (typeof (oriLock) === Screen && oriLock) {
+
+			oriLock("landscape-primary");
+
+		}
+
 		this.sketch.renderer = this.createCanvas(window.innerWidth, window.innerHeight, this.WEBGL);
-		// this.sketch.cbcks.mousePressed.active.push(this.sketch.fullscreen.cbckMousePressed);
 		this.sketch.canvas = this.sketch.elementCanvasParent.querySelector("canvas");
+		this.sketch.window.resumeAttemptingFullscreenEveryPress();
+		this.sketch.window.resumeAttemptingResizeEveryResize();
 		this.sketch.webGlCtx = this.sketch.renderer.GL;
 		this.textFont(this.rpg.fontSonoRegular);
+		this.rpg.dialogueBox.fade = 1;
 		this.rpg.setup();
 	}
 
@@ -418,47 +620,14 @@ new class Sketch extends p5 {
 
 	constructor() {
 		super(p => p, s_divSketchParent);
+
+		for (const [cbck, man] of Object.entries(this.sketch.cbcks)) {
+
+			this[cbck] = man.handleEvent.bind(man);
+
+		}
+
 		this.sketch.elementCanvasParent = s_divSketchParent;
-	}
-
-	keyPressed() {
-		this.sketch.cbcks.keyPressed.stillAlive.clear();
-
-		for (const cbck of this.sketch.cbcks.keyPressed.active) {
-
-			if (cbck()) {
-
-				this.sketch.cbcks.keyPressed.stillAlive.add(cbck);
-
-			}
-
-		}
-
-		this.sketch.cbcks.keyPressed.active
-			= this.sketch.cbcks.keyPressed.active.filter(cbck =>
-				this.sketch.cbcks.keyPressed.stillAlive.has(cbck));
-	}
-
-	mousePressed() {
-		this.sketch.cbcks.mousePressed.stillAlive.clear();
-
-		for (const cbck of this.sketch.cbcks.mousePressed.active) {
-
-			if (cbck()) {
-
-				this.sketch.cbcks.mousePressed.stillAlive.add(cbck);
-
-			}
-
-		}
-
-		this.sketch.cbcks.mousePressed.active
-			= this.sketch.cbcks.mousePressed.active.filter(cbck =>
-				this.sketch.cbcks.mousePressed.stillAlive.has(cbck));
-	}
-
-	windowResized() {
-		this.resizeCanvas(window.innerWidth, window.innerHeight);
 	}
 
 };
