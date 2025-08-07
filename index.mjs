@@ -3,17 +3,17 @@ import p5 from "p5";
 /** @type { HTMLCanvasElement } */
 const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 
-/** @typedef { (...args: any[]) => boolean } SketchEventCbck Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs! */
-class SketchCbckWebEventManager {
+/**
+ * @typedef { (...args: any[]) => boolean } SketchCbck
+ * Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs!
+ */
 
-	/** @type { SketchEventCbck[] } */
-	active = [];
+/** ...Manages `SketchCbck`s! */
+class SketchCbckManager {
 
-	/**
-	* Cached here for future access.
-	* @type { Set<SketchEventCbck> }
-	*/
-	pactive = new Set();
+	/** @type { Set<SketchCbck> } */ pactive = new Set();
+
+	/** @type { SketchCbck[] } */ active = [];
 
 	push(...p_callbacks) {
 		for (const cbck of p_callbacks) {
@@ -62,8 +62,34 @@ new class Sketch extends p5 {
 
 		convoIsLast: () => this.dialogueBox.idDialogue >= this.dialogueBox.conversation.length - 1,
 
-		/** @type { SketchEventCbck } */
-		cbckDialogueAdvance: () => {
+		convoShouldExit: () => {
+
+			if (!this.dialogueBox.convoIsLast()) {
+
+				this.dialogueBox.cursor = 0;
+				this.dialogueBox.idDialogue++;
+				this.dialogueBox.buffer = "";
+
+				return true;
+
+			}
+
+			this.cbcks.touchEnded.remove(this.player.cbckTouchEndedAdvanceDialogue);
+			this.cbcks.keyPressed.remove(this.dialogueBox.cbckConvo);
+			this.player.resumeAllMovementControls();
+			this.npcs.collisionResponse = () => { };
+			this.dialogueBox.draw = () => { };
+			this.dialogueBox.active = false;
+			this.dialogueBox.idDialogue = 0;
+			this.dialogueBox.cursor = 0;
+			this.dialogueBox.buffer = "";
+
+			return false;
+
+		},
+
+		/** @type { SketchCbck } */
+		cbckConvo: () => {
 
 			if (this.keyCode !== 69) {
 
@@ -73,13 +99,7 @@ new class Sketch extends p5 {
 
 			if (this.dialogueBox.convoShouldExit()) {
 
-				++this.dialogueBox.idDialogue;
 				return true;
-
-			}
-			else {
-
-				this.dialogueBox.idDialogue = 0;
 
 			}
 
@@ -87,24 +107,7 @@ new class Sketch extends p5 {
 
 		},
 
-		convoShouldExit: () => {
-
-			if (!this.dialogueBox.convoIsLast()) {
-
-				return true;
-
-			}
-
-			this.cbcks.touchEnded.remove(this.player.touchControlsEndedResponseDialogueAdvance);
-			this.cbcks.keyPressed.remove(this.dialogueBox.cbckDialogueAdvance);
-			this.player.resumeAllMovementControls();
-			this.npcs.collisionResponse = () => { };
-			this.dialogueBox.draw = () => { };
-			this.dialogueBox.active = false;
-
-			return false;
-
-		},
+		conversation: [""],
 
 		drawImpl: () => {
 
@@ -134,7 +137,17 @@ new class Sketch extends p5 {
 			this.fill(255, fade);
 			this.noStroke();
 
-			const text = this.dialogueBox.conversation[this.dialogueBox.idDialogue];
+			const dialogue = this.dialogueBox.conversation[this.dialogueBox.idDialogue];
+			const cursor = this.dialogueBox.cursor;
+			this.dialogueBox.cursor++;
+
+			if (cursor < dialogue.length) {
+
+				this.dialogueBox.buffer += dialogue.charAt(cursor);
+
+			}
+
+			const text = this.dialogueBox.buffer;
 			const tw = -rw / 2.25;
 			const th = -rh / 6;
 
@@ -146,9 +159,9 @@ new class Sketch extends p5 {
 
 		},
 
-		conversation: [""],
-
 		draw: () => { },
+
+		cursor: 0,
 
 		idDialogue: 0,
 
@@ -156,13 +169,16 @@ new class Sketch extends p5 {
 
 		textSize: 12,
 
+		buffer: "",
+
 		fade: 0.5,
 
 	};
 
 	player = {
 
-		touchControlsEndedResponseDialogueAdvance: () => {
+		// #region Touch controls.
+		cbckTouchEndedAdvanceDialogue: () => {
 
 			const deltas = this.player.latestTouch;
 
@@ -174,18 +190,19 @@ new class Sketch extends p5 {
 
 			if (this.dialogueBox.convoShouldExit()) {
 
-				++this.dialogueBox.idDialogue;
+				this.dialogueBox.cursor = 0;
+				this.dialogueBox.idDialogue++;
 				return true;
 
 			}
 
-			this.cbcks.touchEnded.remove(this.player.touchControlsEndedResponseDialogueAdvance);
-			this.cbcks.touchEnded.active.push(this.player.touchControlsEndedResponseMovement);
+			this.cbcks.touchEnded.remove(this.player.cbckTouchEndedAdvanceDialogue);
+			this.cbcks.touchEnded.active.push(this.player.cbckTouchEndedMove);
 			return true;
 
 		},
 
-		touchControlsEndedResponseFindDeltas: () => {
+		cbckTouchEndedFindDeltas: () => {
 
 			// this.player.latestTouch.x -= this.touches[0];
 			// this.player.latestTouch.y -= this.touches[0];
@@ -195,7 +212,7 @@ new class Sketch extends p5 {
 
 		},
 
-		touchControlsEndedResponseMovement: () => {
+		cbckTouchEndedMove: () => {
 
 			const deltas = this.player.latestTouch;
 
@@ -219,24 +236,25 @@ new class Sketch extends p5 {
 
 		},
 
-		touchControlsStartedResponse: () => {
+		cbckTouchStarted: () => {
 
 			this.player.latestTouch.x = this.touches[0].x;
 			this.player.latestTouch.y = this.touches[0].y;
 
 		},
+		// #endregion
 
 		resumeAllMovementControls: () => {
 
 			this.player.keyboardMovementControls = this.player.keyboardControlsImpl;
-			this.cbcks.touchStarted.active.push(this.player.touchControlsEndedResponseMovement);
+			this.cbcks.touchStarted.active.push(this.player.cbckTouchEndedMove);
 
 		},
 
 		pauseAllMovementControls: () => {
 
 			this.player.keyboardMovementControls = () => { };
-			this.cbcks.touchStarted.remove(this.player.touchControlsEndedResponseMovement);
+			this.cbcks.touchStarted.remove(this.player.cbckTouchEndedMove);
 
 		},
 
@@ -279,9 +297,6 @@ new class Sketch extends p5 {
 
 		/** @type { p5.Vector } */
 		latestTouch: undefined,
-
-		/** @type { p5.Vector } */
-		velPosAngle: undefined,
 
 		/** @type { p5.Vector } */
 		posAngle: undefined,
@@ -355,47 +370,30 @@ new class Sketch extends p5 {
 
 	sketch = {
 
-		/**
-		 * @type { {
-		*
-		* x: number,
-		* y: number,
-		* id: number,
-		*
-		* }[]
-		* }
-		*/
-		ptouches: [],
-
 		/** @type { p5.Renderer } */ renderer: undefined,
-
-		/** @type { HTMLCanvasElement } */ canvas: undefined,
-
-		/** @type { HTMLDivElement } */ elementCanvasParent: undefined,
-
+		/** @type { HTMLElement } */ elementCanvasParent: undefined,
+		/** @type { HTMLCanvasElement } */ elementCanvas: undefined,
+		/** @type { { x: number, y: number, id: number, }[] } */ ptouches: [],
 		/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ webGlCtx: undefined,
 
 	};
 
 	cbcks = {
 
-		keyTyped: new SketchCbckWebEventManager(),
-		keyPressed: new SketchCbckWebEventManager(),
-		keyReleased: new SketchCbckWebEventManager(),
-
-		touchEnded: new SketchCbckWebEventManager(),
-		touchMoved: new SketchCbckWebEventManager(),
-		touchStarted: new SketchCbckWebEventManager(),
-
-		windowResized: new SketchCbckWebEventManager(),
-
-		mouseMoved: new SketchCbckWebEventManager(),
-		mouseWheel: new SketchCbckWebEventManager(),
-		mousePressed: new SketchCbckWebEventManager(),
-		mouseClicked: new SketchCbckWebEventManager(),
-		mouseDragged: new SketchCbckWebEventManager(),
-		mouseReleased: new SketchCbckWebEventManager(),
-		doubleClicked: new SketchCbckWebEventManager(),
+		windowResized: new SketchCbckManager(),		// Window callback.
+		keyReleased: new SketchCbckManager(),		// Keyboard callback.
+		keyPressed: new SketchCbckManager(),		// Keyboard callback.
+		keyTyped: new SketchCbckManager(),			// Keyboard callback.
+		touchEnded: new SketchCbckManager(),		// Touch callback.
+		touchMoved: new SketchCbckManager(),		// Touch callback.
+		touchStarted: new SketchCbckManager(),		// Touch callback.
+		mouseMoved: new SketchCbckManager(),		// Mouse callback.
+		mouseWheel: new SketchCbckManager(),		// Mouse callback.
+		mouseClicked: new SketchCbckManager(),		// Mouse callback.
+		mouseDragged: new SketchCbckManager(),		// Mouse callback.
+		mousePressed: new SketchCbckManager(),		// Mouse callback.
+		mouseReleased: new SketchCbckManager(),		// Mouse callback.
+		doubleClicked: new SketchCbckManager(),		// Mouse callback.
 
 	};
 
@@ -407,27 +405,31 @@ new class Sketch extends p5 {
 		 */
 		collisionResponseOverworld: (p_idNpcDetectedLast) => {
 
-			this.dialogueBox.active = true;
+			// this.dialogueBox.cursor = 0;
+			// this.dialogueBox.buffer = "";
+			// this.dialogueBox.active = true;
+			this.dialogueBox.draw = this.dialogueBox.drawImpl;
+
 			this.player.pauseAllMovementControls();
 			this.npcs.collisionResponse = () => { };
-			this.dialogueBox.draw = this.dialogueBox.drawImpl;
-			this.cbcks.keyPressed.active.push(this.dialogueBox.cbckDialogueAdvance);
-			this.cbcks.touchEnded.active.push(this.player.touchControlsEndedResponseDialogueAdvance);
 
 			const convosAllNpcLast = this.npcs.conversations[p_idNpcDetectedLast];
 			const idConvoCurrent = this.npcs.idsConversation[p_idNpcDetectedLast];
 			this.dialogueBox.conversation = convosAllNpcLast[idConvoCurrent];
 
+			this.cbcks.keyPressed.active.push(this.dialogueBox.cbckConvo);
+			this.cbcks.touchEnded.active.push(this.player.cbckTouchEndedAdvanceDialogue);
+
 		},
 
 		/**
-		 * @param { p5.Vector } p_pos
+		 * @param { p5.Vector } p_posAngle
 		 * @param { string[] } p_conversations
 		 */
-		create: (p_pos, p_conversations) => {
+		create: (p_posAngle, p_conversations) => {
 
 			this.npcs.idsDialogue.push(0);
-			this.npcs.posAngles.push(p_pos);
+			this.npcs.posAngles.push(p_posAngle);
 			this.npcs.idsConversation.push(0);
 			this.npcs.conversations.push(p_conversations);
 
@@ -457,10 +459,9 @@ new class Sketch extends p5 {
 
 		setup: () => {
 
-			this.cbcks.touchEnded.active.push(this.player.touchControlsEndedResponseFindDeltas);
+			this.cbcks.touchEnded.active.push(this.player.cbckTouchEndedFindDeltas);
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
 			this.player.latestTouch = this.createVector();
-			this.player.velPosAngle = this.createVector();
 			this.player.posAngle = this.createVector();
 			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
@@ -483,7 +484,7 @@ new class Sketch extends p5 {
 			);
 
 			this.npcs.create(
-				this.createVector(-50, -50),
+				this.createVector(0, -50),
 				// All conversations:
 				[
 
@@ -607,7 +608,7 @@ new class Sketch extends p5 {
 
 	setup() {
 		this.sketch.renderer = this.createCanvas(window.innerWidth, window.innerHeight, this.WEBGL);
-		this.sketch.canvas = this.sketch.elementCanvasParent.querySelector("canvas");
+		this.sketch.elementCanvas = this.sketch.elementCanvasParent.querySelector("canvas");
 		this.window.resumeAttemptingFullscreenEveryPress();
 		this.window.orientationLock("landscape-primary");
 		this.window.resumeAttemptingResizeEveryResize();
