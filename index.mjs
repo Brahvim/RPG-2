@@ -15,7 +15,7 @@ class SketchCbckManager {
 
 	/** @type { SketchCbck[] } */ active = [];
 
-	push(...p_callbacks) {
+	add(...p_callbacks) {
 		for (const cbck of p_callbacks) {
 
 			this.active.push(cbck);
@@ -60,7 +60,25 @@ new class Sketch extends p5 {
 	// #region Fields.
 	dialogueBox = {
 
-		convoIsLast: () => this.dialogueBox.idDialogue >= this.dialogueBox.conversation.length - 1,
+		convoIsLast: () => this.dialogueBox.idDialogue >= this.dialogueBox.convo.length - 1,
+
+		/** @type { SketchCbck } */ cbckTouchStartedForConvo: () => {
+
+			return this.dialogueBox.convoShouldExit();
+
+		},
+
+		/** @type { SketchCbck } */ cbckKeyPressedForConvo: () => {
+
+			if (this.keyCode != 69) {
+
+				return true;
+
+			}
+
+			return this.dialogueBox.convoShouldExit();
+
+		},
 
 		convoShouldExit: () => {
 
@@ -74,8 +92,8 @@ new class Sketch extends p5 {
 
 			}
 
-			this.cbcks.touchEnded.remove(this.player.cbckTouchEndedAdvanceDialogue);
-			this.cbcks.keyPressed.remove(this.dialogueBox.cbckConvo);
+			this.cbcks.touchEnded.remove(this.dialogueBox.cbckTouchStartedForConvo);
+			this.cbcks.keyPressed.remove(this.dialogueBox.cbckKeyPressedForConvo);
 			this.player.resumeAllMovementControls();
 			this.npcs.collisionResponse = () => { };
 			this.dialogueBox.draw = () => { };
@@ -87,27 +105,6 @@ new class Sketch extends p5 {
 			return false;
 
 		},
-
-		/** @type { SketchCbck } */
-		cbckConvo: () => {
-
-			if (this.keyCode !== 69) {
-
-				return true;
-
-			}
-
-			if (this.dialogueBox.convoShouldExit()) {
-
-				return true;
-
-			}
-
-			return false;
-
-		},
-
-		conversation: [""],
 
 		drawImpl: () => {
 
@@ -137,7 +134,7 @@ new class Sketch extends p5 {
 			this.fill(255, fade);
 			this.noStroke();
 
-			const dialogue = this.dialogueBox.conversation[this.dialogueBox.idDialogue];
+			const dialogue = this.dialogueBox.convo[this.dialogueBox.idDialogue];
 			const cursor = this.dialogueBox.cursor;
 			this.dialogueBox.cursor++;
 
@@ -161,8 +158,6 @@ new class Sketch extends p5 {
 
 		draw: () => { },
 
-		cursor: 0,
-
 		idDialogue: 0,
 
 		active: false,
@@ -171,6 +166,10 @@ new class Sketch extends p5 {
 
 		buffer: "",
 
+		convo: [""],
+
+		cursor: 0,
+
 		fade: 0.5,
 
 	};
@@ -178,57 +177,44 @@ new class Sketch extends p5 {
 	player = {
 
 		// #region Touch controls.
-		cbckTouchEndedAdvanceDialogue: () => {
+		/** @type { SketchCbck } */ cbckTouchStartedForMovement: () => {
 
-			const deltas = this.player.latestTouch;
+			let idLast = -1;
+			for (let i = 0; i < this.touches.length; i++) {
 
-			if (deltas.z > 10) {
+				const t = this.touches[i];
+				const id = t.id;
 
-				return true;
+				if (id > idLast) {
 
-			}
+					idLast = i; // The latest touch.
 
-			if (this.dialogueBox.convoShouldExit()) {
-
-				this.dialogueBox.cursor = 0;
-				this.dialogueBox.idDialogue++;
-				return true;
+				}
 
 			}
 
-			this.cbcks.touchEnded.remove(this.player.cbckTouchEndedAdvanceDialogue);
-			this.cbcks.touchEnded.active.push(this.player.cbckTouchEndedMove);
-			return true;
+			this.player.touch1.x = this.touches[idLast].x;
+			this.player.touch1.y = this.touches[idLast].y;
+			this.player.touch1.z = this.touches[idLast].id;
 
-		},
-
-		cbckTouchEndedFindDeltas: () => {
-
-			// this.player.latestTouch.x -= this.touches[0];
-			// this.player.latestTouch.y -= this.touches[0];
-			// this.player.latestTouch.z = this.player.latestTouch.x + this.player.latestTouch.y;
+			this.cbcks.touchMoved.add(this.player.cbckTouchMoved);
+			this.player.onFirstTouchStartForMovement();
 
 			return true;
 
 		},
 
-		cbckTouchEndedMove: () => {
+		/** @type { SketchCbck } */ cbckTouchMoved: () => {
 
-			const deltas = this.player.latestTouch;
+			const start = this.player.touch1;
+			const diff = p5.Vector.sub(this.player.swipeBase, start);
 
-			if (deltas.z < 40) {
+			// Swipe detection
+			if (diff.magSq() > 25) {
 
-				return true;
-
-			}
-
-			if (this.abs(deltas.x) > this.abs(deltas.y)) {
-
-				this.player.posAngle.x += (deltas.x > 0 ? 1 : -1) * this.player.speed;
-
-			} else {
-
-				this.player.posAngle.y += (deltas.y > 0 ? 1 : -1) * this.player.speed;
+				console.log("Basing...");
+				this.player.onSwipe(diff);
+				this.player.swipeBase.set(start);
 
 			}
 
@@ -236,33 +222,85 @@ new class Sketch extends p5 {
 
 		},
 
-		cbckTouchStarted: () => {
+		/** @type { SketchCbck } */ cbckTouchEnd: () => {
 
-			this.player.latestTouch.x = this.touches[0].x;
-			this.player.latestTouch.y = this.touches[0].y;
+			this.cbcks.touchMoved.remove(this.player.cbckTouchMoved);
+			// console.log("Released!");
+			return true;
+
+		},
+
+		onFirstTouchStartForMovementImpl: () => {
+
+			this.player.swipeBase.set(this.player.touch1);
+
+		},
+
+		onFirstTouchStartForMovement: () => { },
+
+		/** @param { p5.Vector } p_swipe */
+		onSwipe: (p_swipe) => {
+
+			if (this.abs(p_swipe.x) > this.abs(p_swipe.y)) {
+
+				if (p_swipe.x > 0) {
+
+					console.log("Right.");
+					this.player.posAngle.x += this.player.speed;
+
+				}
+				else {
+
+					console.log("Left.");
+					this.player.posAngle.x -= this.player.speed;
+
+				}
+
+			}
+			else {
+
+				if (p_swipe.y > 0) {
+
+					console.log("Down.");
+					this.player.posAngle.y += this.player.speed;
+
+				}
+				else {
+
+					console.log("Up.");
+					this.player.posAngle.y -= this.player.speed;
+
+				}
+
+			}
 
 		},
 		// #endregion
 
+		// #region Other stuff.
+		// #region Pause/Resume controls.
 		resumeAllMovementControls: () => {
 
+			this.player.onFirstTouchStartForMovement = this.player.onFirstTouchStartForMovementImpl;
 			this.player.keyboardMovementControls = this.player.keyboardControlsImpl;
-			this.cbcks.touchStarted.active.push(this.player.cbckTouchEndedMove);
+			this.cbcks.touchStarted.add(this.player.cbckTouchStartedForMovement);
+			this.cbcks.touchEnded.add(this.player.cbckTouchEnd);
 
 		},
 
 		pauseAllMovementControls: () => {
 
+			this.cbcks.touchStarted.remove(this.player.cbckTouchStartedForMovement);
+			this.cbcks.touchMoved.remove(this.player.cbckTouchMoved);
+			this.cbcks.touchEnded.remove(this.player.cbckTouchEnd);
+			this.player.onFirstTouchStartForMovement = () => { };
 			this.player.keyboardMovementControls = () => { };
-			this.cbcks.touchStarted.remove(this.player.cbckTouchEndedMove);
 
 		},
+		// #endregion
 
-		keyboardMovementControls: () => {
-
-			// Called in `Sketch::draw()`!
-
-		},
+		// #region Keyboard controls.
+		keyboardMovementControls: () => { }, // Called in `Sketch::draw()`!
 
 		keyboardControlsImpl: () => {
 
@@ -291,12 +329,17 @@ new class Sketch extends p5 {
 			}
 
 		},
+		// #endregion
+		// #endregion
 
 		/** @type { Set<number> } */
 		idsNpcsTouched: new Set(),
 
+		/** @type { p5.Vector } `z` is touch ID! */
+		touch1: undefined,
+
 		/** @type { p5.Vector } */
-		latestTouch: undefined,
+		swipeBase: undefined,
 
 		/** @type { p5.Vector } */
 		posAngle: undefined,
@@ -348,7 +391,7 @@ new class Sketch extends p5 {
 
 		resumeAttemptingResizeEveryResize: () => {
 
-			this.cbcks.windowResized.active.push(this.window.cbckResizeCanvas);
+			this.cbcks.windowResized.add(this.window.cbckResizeCanvas);
 
 		},
 
@@ -361,8 +404,8 @@ new class Sketch extends p5 {
 
 		resumeAttemptingFullscreenEveryPress: () => {
 
-			this.cbcks.touchStarted.active.push(this.window.cbckFullscreen);
-			this.cbcks.mousePressed.active.push(this.window.cbckFullscreen);
+			this.cbcks.touchStarted.add(this.window.cbckFullscreen);
+			this.cbcks.mousePressed.add(this.window.cbckFullscreen);
 
 		},
 
@@ -410,15 +453,15 @@ new class Sketch extends p5 {
 			// this.dialogueBox.active = true;
 			this.dialogueBox.draw = this.dialogueBox.drawImpl;
 
-			this.player.pauseAllMovementControls();
 			this.npcs.collisionResponse = () => { };
+			this.player.pauseAllMovementControls();
 
 			const convosAllNpcLast = this.npcs.conversations[p_idNpcDetectedLast];
 			const idConvoCurrent = this.npcs.idsConversation[p_idNpcDetectedLast];
-			this.dialogueBox.conversation = convosAllNpcLast[idConvoCurrent];
+			this.dialogueBox.convo = convosAllNpcLast[idConvoCurrent];
 
-			this.cbcks.keyPressed.active.push(this.dialogueBox.cbckConvo);
-			this.cbcks.touchEnded.active.push(this.player.cbckTouchEndedAdvanceDialogue);
+			this.cbcks.keyPressed.add(this.dialogueBox.cbckKeyPressedForConvo);
+			this.cbcks.touchStarted.add(this.dialogueBox.cbckTouchStartedForConvo);
 
 		},
 
@@ -459,10 +502,12 @@ new class Sketch extends p5 {
 
 		setup: () => {
 
-			this.cbcks.touchEnded.active.push(this.player.cbckTouchEndedFindDeltas);
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
-			this.player.latestTouch = this.createVector();
+
+			this.player.swipeBase = this.createVector();
 			this.player.posAngle = this.createVector();
+			this.player.touch1 = this.createVector();
+
 			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
 
@@ -520,6 +565,35 @@ new class Sketch extends p5 {
 			0, 0, 0,
 			0, 1, 0
 		);
+
+		// Touch debugging:
+
+		this.push();
+		this.sketch.webGlCtx.disable(WebGLRenderingContext.DEPTH_TEST);
+
+		const b = this.player.swipeBase;
+
+		this.fill(255);
+		this.noStroke();
+
+		this.translate(
+			this.width * -0.5,
+			this.height * -0.5,
+		);
+
+		if (this.touches.length) {
+
+			const t = this.touches[0];
+			this.circle(t.x, t.y, 25);
+
+		}
+
+		this.fill(255, 0, 0);
+		this.circle(b.x, b.y, 25);
+
+		this.sketch.webGlCtx.enable(WebGLRenderingContext.DEPTH_TEST);
+		this.pop();
+
 
 		this.sketch.ptouches = this.touches;
 		this.player.keyboardMovementControls();

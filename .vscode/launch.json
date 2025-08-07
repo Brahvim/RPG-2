@@ -3,16 +3,39 @@
 	// Hover to view descriptions of existing attributes.
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
+	"compounds": [
+		{
+			"stopAll": true,
+			"configurations": [
+				"[conf] Firefox Debug",
+				"[conf] Vite Dev",
+			],
+			"name": "[comp] Use Firefox For Vite",
+		},
+	],
 	"configurations": [
 		{
 			"port": 6000,
 			"type": "firefox",
 			"host": "localhost",
 			"request": "attach",
-			"postDebugTask": "Vite Kill",
-			"name": "Attach Firefox Debugger",
+			"name": "[conf] Firefox Debug",
 			"url": "http://192.168.43.227:8080/",
-			"preLaunchTask": "Start Full Development Environment",
+			"preLaunchTask": "Start Firefox Debugger Server",
+		},
+		{
+			"args": [
+				"vite",
+				"dev",
+			],
+			"type": "node",
+			"request": "launch",
+			"name": "[conf] Vite Dev",
+			"killBehavior": "forceful",
+			"runtimeExecutable": "npx",
+			"cwd": "${workspaceFolder}",
+			"preLaunchTask": "Vite Build",
+			"console": "integratedTerminal",
 		},
 	],
 }
