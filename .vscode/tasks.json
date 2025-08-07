@@ -3,67 +3,74 @@
 	// for the documentation about the tasks.json format
 	"version": "2.0.0",
 	"tasks": [
-		{
+		{ // Vite Dev
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
 			"type": "shell",
+			"group": "test",
+			"presentation": {
+				"clear": true,
+				"close": false,
+				"reveal": "never",
+			},
+			"label": "Vite Dev",
+			"isBackground": true,
+			"command": "npx vite dev",
+		},
+		{ // Vite Kill
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"type": "shell",
+			"group": "test",
+			"presentation": {
+				"clear": true,
+				"close": false,
+				"reveal": "never",
+			},
+			"label": "Vite Kill",
+			"isBackground": true,
+			"command": "f=./.vscode/.vite-pid; kill $(cat $f); rm -f $f",
+		},
+		{ // Vite Build
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"type": "shell",
+			"presentation": {
+				"clear": true,
+				"close": false,
+				"reveal": "silent",
+			},
 			"label": "Vite Build",
 			"command": "npx vite build",
-			"options": {
-				"cwd": "${workspaceFolder}",
-			},
-			"presentation": {
-				"reveal": "silent",
-				"clear": true,
-				"close": true,
-			},
 		},
-		{
+		{ // Start Firefox Debugger
 			"type": "shell",
-			"isBackground": true,
-			"label": "Vite Dev",
-			"command": "npx vite dev",
-			"options": {
-				"cwd": "${workspaceFolder}",
-			},
+			"group": "test",
 			"presentation": {
-				"reveal": "silent",
 				"clear": true,
-				"close": true,
-			},
-			"problemMatcher": {
-				"pattern": [
-					{
-						"file": 1,
-						"message": 3,
-						"location": 2,
-						"regexp": ".*",
-					},
-				],
-				"background": {
-					"activeOnStart": true,
-					"beginsPattern": "vite v",
-					"endsPattern": "ready in .*",
-				},
-			},
-		},
-		{
-			"type": "shell",
-			"presentation": {
+				"close": false,
 				"reveal": "silent",
-				"clear": true,
-				"close": true,
 			},
 			"isBackground": true,
 			"label": "Start Firefox Debugger",
 			"command": "firefox --start-debugger-server 6000",
 		},
-		{
+		{ // Start Full Development Environment
 			"dependsOn": [
 				"Vite Build",
 				"Vite Dev",
-				"Start Firefox Debugger",
+				"Start Firefox Debugger"
 			],
+			"group": "test",
 			"dependsOrder": "sequence",
-			"label": "Start Full Dev Env",
+			"label": "Start Full Development Environment",
 		},
-	]
+	],
 }

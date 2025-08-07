@@ -1,6 +1,11 @@
-# Brahvim's stuff:
+# region Brahvim's stuff:
+
 package-lock.json*
-# I would like to remove it *but here we are*.
+# (I would like to remove it *but here we are*.)
+
+.vscode/.vite-pid
+
+# endregion
 
 # Logs
 logs
@@ -18,7 +23,7 @@ dist-ssr
 
 # Editor directories and files
 # .vscode/*
-!.vscode/extensions.json
+# !.vscode/extensions.json
 .idea
 .DS_Store
 *.suo

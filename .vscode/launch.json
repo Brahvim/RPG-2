@@ -7,11 +7,12 @@
 		{
 			"port": 6000,
 			"type": "firefox",
+			"host": "localhost",
 			"request": "attach",
-			"webRoot": "${workspaceFolder}",
+			"postDebugTask": "Vite Kill",
 			"name": "Attach Firefox Debugger",
 			"url": "http://192.168.43.227:8080/",
-			"preLaunchTask": "Start Full Dev Env",
+			"preLaunchTask": "Start Full Development Environment",
 		},
 	],
 }
