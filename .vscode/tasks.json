@@ -64,9 +64,9 @@
 		},
 		{ // Start Full Development Environment
 			"dependsOn": [
+				"Start Firefox Debugger",
 				"Vite Build",
 				"Vite Dev",
-				"Start Firefox Debugger"
 			],
 			"group": "test",
 			"dependsOrder": "sequence",
