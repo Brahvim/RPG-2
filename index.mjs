@@ -1,5 +1,7 @@
 import p5 from "p5";
 
+const GL = WebGLRenderingContext;
+
 /** @type { HTMLCanvasElement } */
 const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 
@@ -111,8 +113,8 @@ new class Sketch extends p5 {
 			this.push();
 			this.translate(0, this.height / 8);
 			const fade = 255 * this.dialogueBox.fade;
-			this.sketch.webGlCtx.disable(WebGLRenderingContext.DEPTH_TEST);
 
+			this.gl.disable(GL.DEPTH_TEST);
 			const rr = 20;
 			const rh = 80;
 			const rw = this.width / 3;
@@ -151,8 +153,8 @@ new class Sketch extends p5 {
 			this.text(text, tw, th);
 			// #endregion
 
-			this.sketch.webGlCtx.enable(WebGLRenderingContext.DEPTH_TEST);
 			this.pop();
+			this.gl.enable(GL.DEPTH_TEST);
 
 		},
 
@@ -170,73 +172,11 @@ new class Sketch extends p5 {
 
 		cursor: 0,
 
-		fade: 0.5,
+		fade: 0.8,
 
 	};
 
 	player = {
-
-		// #region Touch controls.
-		/** @type { SketchCbck } */ cbckTouchStartedForMovement: () => {
-
-			let idLast = -1;
-			for (let i = 0; i < this.touches.length; i++) {
-
-				const t = this.touches[i];
-				const id = t.id;
-
-				if (id > idLast) {
-
-					idLast = i; // The latest touch.
-
-				}
-
-			}
-
-			this.player.touch1.x = this.touches[idLast].x;
-			this.player.touch1.y = this.touches[idLast].y;
-			this.player.touch1.z = this.touches[idLast].id;
-
-			this.cbcks.touchMoved.add(this.player.cbckTouchMoved);
-			this.player.onFirstTouchStartForMovement();
-
-			return true;
-
-		},
-
-		/** @type { SketchCbck } */ cbckTouchMoved: () => {
-
-			const start = this.player.touch1;
-			const diff = p5.Vector.sub(this.player.swipeBase, start);
-
-			// Swipe detection
-			if (diff.magSq() > 25) {
-
-				console.log("Basing...");
-				this.player.onSwipe(diff);
-				this.player.swipeBase.set(start);
-
-			}
-
-			return true;
-
-		},
-
-		/** @type { SketchCbck } */ cbckTouchEnd: () => {
-
-			this.cbcks.touchMoved.remove(this.player.cbckTouchMoved);
-			// console.log("Released!");
-			return true;
-
-		},
-
-		onFirstTouchStartForMovementImpl: () => {
-
-			this.player.swipeBase.set(this.player.touch1);
-
-		},
-
-		onFirstTouchStartForMovement: () => { },
 
 		/** @param { p5.Vector } p_swipe */
 		onSwipe: (p_swipe) => {
@@ -275,25 +215,17 @@ new class Sketch extends p5 {
 			}
 
 		},
-		// #endregion
 
 		// #region Other stuff.
 		// #region Pause/Resume controls.
 		resumeAllMovementControls: () => {
 
-			this.player.onFirstTouchStartForMovement = this.player.onFirstTouchStartForMovementImpl;
 			this.player.keyboardMovementControls = this.player.keyboardControlsImpl;
-			this.cbcks.touchStarted.add(this.player.cbckTouchStartedForMovement);
-			this.cbcks.touchEnded.add(this.player.cbckTouchEnd);
 
 		},
 
 		pauseAllMovementControls: () => {
 
-			this.cbcks.touchStarted.remove(this.player.cbckTouchStartedForMovement);
-			this.cbcks.touchMoved.remove(this.player.cbckTouchMoved);
-			this.cbcks.touchEnded.remove(this.player.cbckTouchEnd);
-			this.player.onFirstTouchStartForMovement = () => { };
 			this.player.keyboardMovementControls = () => { };
 
 		},
@@ -328,21 +260,31 @@ new class Sketch extends p5 {
 
 			}
 
+			if (this.touches.length > 0) {
+
+				const t = this.touches[0];
+
+
+
+			}
+
 		},
 		// #endregion
 		// #endregion
 
+		/** @type { p5.Vector } `z` is touch ID! */
+		touchStart: this.createVector(),
+
+		/** @type { p5.Vector } */
+		swipeBase: this.createVector(),
+
+		/** @type { p5.Vector } */
+		posAngle: this.createVector(),
+
 		/** @type { Set<number> } */
 		idsNpcsTouched: new Set(),
 
-		/** @type { p5.Vector } `z` is touch ID! */
-		touch1: undefined,
-
-		/** @type { p5.Vector } */
-		swipeBase: undefined,
-
-		/** @type { p5.Vector } */
-		posAngle: undefined,
+		isTouching: false,
 
 		speed: 3,
 
@@ -417,7 +359,6 @@ new class Sketch extends p5 {
 		/** @type { HTMLElement } */ elementCanvasParent: undefined,
 		/** @type { HTMLCanvasElement } */ elementCanvas: undefined,
 		/** @type { { x: number, y: number, id: number, }[] } */ ptouches: [],
-		/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ webGlCtx: undefined,
 
 	};
 
@@ -503,11 +444,6 @@ new class Sketch extends p5 {
 		setup: () => {
 
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
-
-			this.player.swipeBase = this.createVector();
-			this.player.posAngle = this.createVector();
-			this.player.touch1 = this.createVector();
-
 			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
 
@@ -547,11 +483,26 @@ new class Sketch extends p5 {
 		},
 
 	};
+
+	/** @type { WebGL2RenderingContext | WebGLRenderingContext } */
+	gl = undefined;
 	// #endregion
 
 	draw() {
+		// No longer works!
+		// this.push();
+		//
+		// this.translate(this.width * -0.5, this.height * -0.5);
+		// this.noStroke();
+		// this.noSmooth();
+		// this.fill(0, 12);
+		// this.rect(0, 0, this.width, this.height);
+		//
+		// this.pop();
 		this.background(0);
 
+		this.push();
+		// #region Camera!
 		// Heck, my values work exactly LIKE the defaults!
 		this.perspective(
 			70,
@@ -565,35 +516,6 @@ new class Sketch extends p5 {
 			0, 0, 0,
 			0, 1, 0
 		);
-
-		// Touch debugging:
-
-		this.push();
-		this.sketch.webGlCtx.disable(WebGLRenderingContext.DEPTH_TEST);
-
-		const b = this.player.swipeBase;
-
-		this.fill(255);
-		this.noStroke();
-
-		this.translate(
-			this.width * -0.5,
-			this.height * -0.5,
-		);
-
-		if (this.touches.length) {
-
-			const t = this.touches[0];
-			this.circle(t.x, t.y, 25);
-
-		}
-
-		this.fill(255, 0, 0);
-		this.circle(b.x, b.y, 25);
-
-		this.sketch.webGlCtx.enable(WebGLRenderingContext.DEPTH_TEST);
-		this.pop();
-
 
 		this.sketch.ptouches = this.touches;
 		this.player.keyboardMovementControls();
@@ -678,6 +600,27 @@ new class Sketch extends p5 {
 		// #endregion
 
 		this.dialogueBox.draw();
+		// #endregion
+		this.pop();
+
+		// #region 2D rendering.
+		// Aids off-3D rendering!:
+		this.translate(this.width * -0.5, this.height * -0.5);
+
+		// Touch debugging:
+		if (this.touches.length != 0) {
+
+			this.push();
+
+			this.fill(255);
+			this.noStroke();
+			const t = this.touches[0];
+			this.circle(t.x, t.y, 25);
+
+			this.pop();
+
+		}
+		// #endregion
 	}
 
 	setup() {
@@ -686,9 +629,8 @@ new class Sketch extends p5 {
 		this.window.resumeAttemptingFullscreenEveryPress();
 		this.window.orientationLock("landscape-primary");
 		this.window.resumeAttemptingResizeEveryResize();
-		this.sketch.webGlCtx = this.sketch.renderer.GL;
 		this.textFont(this.rpg.fontSonoRegular);
-		this.dialogueBox.fade = 1;
+		this.gl = this.sketch.renderer.GL;
 		this.rpg.setup();
 	}
 
