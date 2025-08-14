@@ -116,19 +116,20 @@ new class Sketch extends p5 {
 		drawImpl: () => {
 
 			this.push();
-			this.translate(0, this.height / 8);
-			const fade = 255 * this.dialogueBox.fade;
 
-			// this.gl.disable(GL.DEPTH_TEST);
-			const rr = 20;
-			const rh = 80;
-			const rw = this.width / 3;
+			this.translate(this.width / 2, this.height * 0.8);
+			const rh = this.height * this.displayDensity() * 0.12;
+			const fade = 255 * this.dialogueBox.fade;
+			const rw = this.width * 0.5;
+			const rr = 20; // Just 4% of width!
+			this.scale(1.5);
 
 			// #region Rectangle.
 			this.push();
 
 			this.rectMode(this.CENTER);
 			this.fill(127, fade);
+			this.curveDetail(6);
 			this.noStroke();
 
 			this.rect(0, 0, rw, rh, rr, rr, rr, rr);
@@ -137,10 +138,6 @@ new class Sketch extends p5 {
 			// #endregion
 
 			// #region Text.
-			this.textSize(this.dialogueBox.textSize);
-			this.fill(255, fade);
-			this.noStroke();
-
 			const dialogue = this.dialogueBox.convo[this.dialogueBox.idDialogue];
 			const cursor = this.dialogueBox.cursor;
 			this.dialogueBox.cursor++;
@@ -153,13 +150,19 @@ new class Sketch extends p5 {
 
 			const text = this.dialogueBox.buffer;
 			const tw = -rw / 2.25;
-			const th = -rh / 6;
+			const th = -rh / 8;
 
+			this.push();
+
+			this.textSize(rw * 0.04);
+			this.fill(255, fade);
+			this.noStroke();
 			this.text(text, tw, th);
+
+			this.pop();
 			// #endregion
 
 			this.pop();
-			// this.gl.enable(GL.DEPTH_TEST);
 
 		},
 
@@ -183,44 +186,6 @@ new class Sketch extends p5 {
 
 	player = {
 
-		/** @param { p5.Vector } p_swipe */
-		onSwipe: (p_swipe) => {
-
-			if (this.abs(p_swipe.x) > this.abs(p_swipe.y)) {
-
-				if (p_swipe.x > 0) {
-
-					console.log("Right.");
-					this.player.posAngle.x += this.player.speed;
-
-				}
-				else {
-
-					console.log("Left.");
-					this.player.posAngle.x -= this.player.speed;
-
-				}
-
-			}
-			else {
-
-				if (p_swipe.y > 0) {
-
-					console.log("Down.");
-					this.player.posAngle.y += this.player.speed;
-
-				}
-				else {
-
-					console.log("Up.");
-					this.player.posAngle.y -= this.player.speed;
-
-				}
-
-			}
-
-		},
-
 		// #region Other stuff.
 		// #region Pause/Resume controls.
 		resumeAllMovementControls: () => {
@@ -242,26 +207,39 @@ new class Sketch extends p5 {
 		movementControlsImpl: () => {
 
 			// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
-			// than via some callback that adds functions into a/an set/array to respond to movements.
+			// than via some callback that adds functions into a `Set` / an array to respond to movements.
+
+			const dt = this.deltaTime * 0.1; // Actually perfy, 'cause it also saves an access.
 
 			if (this.keyIsDown(87)) {
 
-				this.player.posAngle.y -= this.player.speed * (this.deltaTime / 10);
+				this.player.posAngle.y -= this.player.speed * dt;
 
 			}
 			if (this.keyIsDown(65)) {
 
-				this.player.posAngle.x -= this.player.speed * (this.deltaTime / 10);
+				this.player.posAngle.x -= this.player.speed * dt;
 
 			}
 			if (this.keyIsDown(83)) {
 
-				this.player.posAngle.y += this.player.speed * (this.deltaTime / 10);
+				this.player.posAngle.y += this.player.speed * dt;
 
 			}
 			if (this.keyIsDown(68)) {
 
-				this.player.posAngle.x += this.player.speed * (this.deltaTime / 10);
+				this.player.posAngle.x += this.player.speed * dt;
+
+			}
+
+			if (this.stick.draw == this.stick.drawImpl) { // Control if stick is rendering.
+
+				// Aaaaaaaand this is why I hate square roots.
+				const nx = this.stick.normalized.x;
+				const ny = this.stick.normalized.y;
+
+				this.player.posAngle.x += nx ? nx : 0;
+				this.player.posAngle.y += ny ? ny : 0;
 
 			}
 
@@ -388,6 +366,7 @@ new class Sketch extends p5 {
 
 		/** @type { SketchCbck } */	cbckTouchStarted: () => {
 
+			// All three of these exist for cosmetic reasons:
 			this.stick.base.x = this.touches[0].x;
 			this.stick.base.y = this.touches[0].y;
 			this.stick.draw = this.stick.drawImpl;
@@ -397,19 +376,22 @@ new class Sketch extends p5 {
 
 		/** @type { SketchCbck } */	cbckTouchMoved: () => {
 
-			// const x = this.touches[0].x - this.stick.base.x;
-			// const y = this.touches[0].y - this.stick.base.y;
-			// const a = this.atan2(y, x);
+			// #region Touches magic!
+			const ty = this.touches[0].y;
+			const tx = this.touches[0].x;
 
-			// this.stick.top.x = 1;
-			// this.stick.top.y = 1;
-			// this.stick.top.setHeading(a);
+			const dx = tx - this.stick.base.x;
+			const dy = ty - this.stick.base.y;
+			// const mag = this.createVector(dx, dy).mag(); // A performance test for mobile! A FAILED test!
+			// const mag = this.sqrt(this.sq(dx) + this.sq(dy)); // Even `p5::abs()` CAN'T save this from negative numbers.
+			// const mag = Math.sqrt(this.sq(dx) + this.sq(dy)); // Direct-access speed number up?
+			const mag = Math.pow(this.sq(dx) + this.sq(dy), 0.5); // Apparently this can be faster for math'tical reasons.
 
-			// // const m = this.sqrt(x * x + y * y);
-			// // this.stick.top.x *= m;
-			// // this.stick.top.y *= m;
-			// this.stick.top.x += this.stick.base.x;
-			// this.stick.top.y += this.stick.base.y;
+			this.stick.normalized.z = mag;
+			this.stick.normalized.x = dx / mag;
+			this.stick.normalized.y = dy / mag;
+			// #endregion
+
 			return true;
 
 		},
@@ -423,97 +405,49 @@ new class Sketch extends p5 {
 
 		drawImpl: () => {
 
-			// This is rectangular!:
-
-			// this.stick.top.x = this.constrain(
-			// 	this.stick.top.x,
-			// 	this.stick.base.x - this.stick.base.z,
-			// 	this.stick.base.x + this.stick.base.z,
-			// );
-
-			// this.stick.top.y = this.constrain(
-			// 	this.stick.top.y,
-			// 	this.stick.base.y - this.stick.base.z,
-			// 	this.stick.base.y + this.stick.base.z,
-			// );
-
-			// #region Base.
+			// #region Base rendering.
 			this.push();
-			this.noFill();
-			this.curveDetail(3);
+
 			this.strokeWeight(8);
+			this.curveDetail(1);
 			this.stroke(192);
+			this.noFill();
 			this.circle(
 				this.stick.base.x,
 				this.stick.base.y,
 				this.stick.base.z * 2
 			);
+
 			this.pop();
 			// #endregion
 
-			// Old gold!
+			// #region Touches magic! // Now in `this::stick::cbckTouchMoved()`.
 			// const ty = this.touches[0].y;
 			// const tx = this.touches[0].x;
 
 			// const dx = tx - this.stick.base.x;
 			// const dy = ty - this.stick.base.y;
-			// const dist = this.abs(dy) + this.abs(dx);
-			// const mag = this.sqrt(this.sq(dx) + this.sq(dy));
+			// // const mag = this.createVector(dx, dy).mag(); // A performance test for mobile! A FAILED test!
+			// // const mag = this.sqrt(this.sq(dx) + this.sq(dy)); // Even `p5::abs()` CAN'T save this from negative numbers.
+			// // const mag = Math.sqrt(this.sq(dx) + this.sq(dy)); // Direct-access speed number up?
+			// const mag = Math.pow(this.sq(dx) + this.sq(dy), 0.5); // Apparently this can be faster for math'tical reasons.
 
 			// this.stick.normalized.z = mag;
 			// this.stick.normalized.x = dx / mag;
 			// this.stick.normalized.y = dy / mag;
-			// this.stick.dir = this.atan2(dy, dx) - this.QUARTER_PI;
+			// #endregion
 
-			// // #region Top.
-			// this.push();
-
-			// this.fill(64);
-			// this.noStroke();
-
-			// if (dist < this.stick.base.z) {
-
-			// 	// this.translate(tx, ty);
-			// 	this.circle(tx, ty, this.stick.top.z);
-			// 	// this.sphere(this.stick.top.z * 0.5, 6, 6);
-
-			// }
-			// else { // Render top circle on edges if the swipe isn't inside.
-
-			// 	this.translate(this.stick.base.x, this.stick.base.y);
-			// 	const edge = this.stick.base.z * 0.5;
-
-			// 	this.rotateZ(this.stick.dir);
-			// 	this.translate(edge, edge);
-			// 	this.circle(0, 0, this.stick.top.z);
-			// 	// this.sphere(this.stick.top.z * 0.5, 6, 6);
-
-			// }
-
-			// this.pop();
-			// // #endregion
-
-			const ty = this.touches[0].y;
-			const tx = this.touches[0].x;
-
-			const dx = tx - this.stick.base.x;
-			const dy = ty - this.stick.base.y;
-			const size = this.stick.base.z * 0.6775; // Derived off of the visual precision of `base.z = 150` and `top.z = 80` .
-			const mag = this.sqrt(this.sq(dx) + this.sq(dy));
-
-			this.stick.normalized.z = mag;
-			this.stick.normalized.x = dx / mag;
-			this.stick.normalized.y = dy / mag;
-			// this.stick.dir = this.atan2(dy, dx) - this.QUARTER_PI; // Arctan, then game input requires `p5.Vector::fromAngle()`,
-			// which is LITERALLY `{ .x = cos(theta), .y = sin(dir) }`! That's THREE trig ops!
-
-			// #region Top.
+			// #region Top rendering.
 			this.push();
 
 			this.fill(64);
 			this.noStroke();
+			this.curveDetail(1);
+			const ty = this.touches[0].y;
+			const tx = this.touches[0].x;
+			const size = this.stick.base.z * 0.6775; // Derived off of the visual precision of `base.z = 150` and `top.z = 80` .
 
-			if (mag < size) {
+			if (this.stick.normalized.z < size) {
 
 				this.circle(tx, ty, this.stick.top.z);
 
@@ -526,12 +460,6 @@ new class Sketch extends p5 {
 				);
 				this.circle(0, 0, this.stick.top.z);
 
-				// Old gold. Worked PERFECTLY:
-				// const edge = this.stick.base.z * 0.5;
-				// this.rotateZ(this.stick.dir);
-				// this.translate(edge, edge);
-				// this.circle(0, 0, this.stick.top.z);
-
 			}
 
 			this.pop();
@@ -540,9 +468,10 @@ new class Sketch extends p5 {
 		},
 
 		draw: NULLFN,
-		dir: 0,
 
 	};
+
+
 
 	npcs = {
 
@@ -658,7 +587,7 @@ new class Sketch extends p5 {
 		// this.pop();
 		this.background(0);
 
-		this.push();
+		// this.push();
 		// #region Camera!
 		// Heck, my values work exactly LIKE the defaults!
 		this.perspective(
@@ -752,29 +681,15 @@ new class Sketch extends p5 {
 		this.pop();
 		// #endregion
 
-		this.dialogueBox.draw();
 		// #endregion
-		this.pop();
+		// this.pop();
 
 		// #region 2D rendering.
-		// Aids off-3D rendering!:
-		this.translate(this.width * -0.5, this.height * -0.5);
+		this.resetMatrix();
+		this.ortho(0, this.width, -this.height, 0, -1000, 1000); // Ortho for HUD
 
+		this.dialogueBox.draw();
 		this.stick.draw();
-
-		// Touch debugging:
-		// if (this.touches.length != 0) {
-
-		// 	this.push();
-
-		// 	this.fill(255);
-		// 	this.noStroke();
-		// 	const t = this.touches[0];
-		// 	this.circle(t.x, t.y, 25);
-
-		// 	this.pop();
-
-		// }
 		// #endregion
 	}
 

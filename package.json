@@ -2,7 +2,7 @@
   "type": "module",
   "license": "ISC",
   "dependencies": {
-    "p5": "^1.11.9",
+    "p5": "^2.0.4",
     "vite": "^7.0.4"
   },
   "description": "",
