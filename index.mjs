@@ -192,12 +192,14 @@ new class Sketch extends p5 {
 
 			this.player.movementControls = this.player.movementControlsImpl;
 			this.cbcks.touchStarted.add(this.stick.cbckTouchStarted);
+			this.cbcks.touchStarted.add(this.dpad.cbckTouchStarted);
 
 		},
 
 		pauseAllMovementControls: () => {
 
 			this.cbcks.touchStarted.remove(this.stick.cbckTouchStarted);
+			this.cbcks.touchStarted.remove(this.dpad.cbckTouchStarted);
 			this.player.movementControls = NULLFN;
 
 		},
@@ -471,7 +473,146 @@ new class Sketch extends p5 {
 
 	};
 
+	dpad = {
 
+		/** @type { p5.Vector } */ base: this.createVector(0, 0, 50),
+		/** @type { p5.Vector } */ gap: 0.9,
+
+		/** @type { SketchCbck } */	cbckTouchStarted: () => {
+
+			// All three of these exist for cosmetic reasons:
+			this.dpad.base.x = this.touches[0].x;
+			this.dpad.base.y = this.touches[0].y;
+			this.dpad.draw = this.dpad.drawImpl;
+			return true;
+
+		},
+
+		/** @type { SketchCbck } */	cbckTouchMoved: () => {
+
+			const dt = this.deltaTime * 0.1;
+			const base = this.dpad.base;
+			const gap = this.dpad.gap;
+
+			// Approximate size of arrow hitbox relative to base.z
+			const w = base.z * 0.6;
+			const h = base.z * 0.9;
+
+			/** Takes D-pad button center. */
+			const dpadButtonTouched = (x, y) => {
+
+				const pt = this.touches[0];
+
+				const top = y - h / 2;
+				const left = x - w / 2;
+				const right = x + w / 2;
+				const bottom = y + h / 2;
+
+				return !(pt.x < left || pt.x > right || pt.y < top || pt.y > bottom);
+
+			};
+
+			if (dpadButtonTouched(
+				base.x,
+				base.y - gap
+			)) { // W
+
+				this.player.posAngle.y -= this.player.speed * dt;
+
+			}
+			if (dpadButtonTouched(
+				base.x - gap,
+				base.y
+			)) { // A
+
+				this.player.posAngle.x -= this.player.speed * dt;
+
+			}
+			if (dpadButtonTouched(
+				base.x,
+				base.y + gap
+			)) { // S
+
+				this.player.posAngle.y += this.player.speed * dt;
+
+			}
+			if (dpadButtonTouched(
+				base.x + gap,
+				base.y
+			)) { // D
+
+				this.player.posAngle.x += this.player.speed * dt;
+
+			}
+
+			return true;
+
+		},
+
+		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
+
+			this.dpad.draw = NULLFN;
+			return true;
+
+		},
+
+		drawImpl: () => {
+
+			this.push();
+
+			this.translate(this.dpad.base.x, this.dpad.base.y);
+
+			const arrow = () => {
+
+				this.beginShape(this.TESS);
+
+				this.vertex(-0.5, 0.35);
+				this.vertex(0.5, 0.35);
+				this.vertex(0.5, -0.35);
+				// this.edge(true);
+				this.vertex(0, -0.85);
+				// this.edge(false);
+				this.vertex(-0.5, -0.35);
+
+				this.endShape(this.CLOSE);
+
+			};
+
+			this.scale(this.dpad.base.z);
+			this.fill(127, 127);
+			this.noStroke();
+
+			this.push(); // W.
+			this.translate(0, -this.dpad.gap);
+			this.rotateZ(0);
+			arrow();
+			this.pop();
+
+			this.push(); // A.
+			this.translate(-this.dpad.gap, 0);
+			this.rotateZ(-this.HALF_PI);
+			arrow();
+			this.pop();
+
+			this.push(); // S.
+			this.translate(0, this.dpad.gap);
+			this.rotateZ(this.PI);
+			arrow();
+			this.pop();
+
+			this.push(); // D.
+			this.translate(this.dpad.gap, 0);
+			this.rotateZ(this.HALF_PI);
+			arrow();
+			this.pop();
+
+			this.pop();
+
+		},
+
+		draw: NULLFN,
+
+	};
 
 	npcs = {
 
@@ -527,9 +668,15 @@ new class Sketch extends p5 {
 		setup: () => {
 
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
+
+			this.cbcks.touchStarted.add(this.dpad.cbckTouchStarted);
+			this.cbcks.touchMoved.add(this.dpad.cbckTouchMoved);
+			this.cbcks.touchEnded.add(this.dpad.cbckTouchEnded);
+
 			this.cbcks.touchStarted.add(this.stick.cbckTouchStarted);
 			this.cbcks.touchMoved.add(this.stick.cbckTouchMoved);
 			this.cbcks.touchEnded.add(this.stick.cbckTouchEnded);
+
 			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
 
@@ -689,7 +836,8 @@ new class Sketch extends p5 {
 		this.ortho(0, this.width, -this.height, 0, -1000, 1000); // Ortho for HUD
 
 		this.dialogueBox.draw();
-		this.stick.draw();
+		// this.stick.draw();
+		this.dpad.draw();
 		// #endregion
 	}
 
