@@ -1,5 +1,6 @@
 import p5 from "p5";
 
+const NULLFN = () => { };
 const GL = WebGLRenderingContext;
 
 /** @type { HTMLCanvasElement } */
@@ -60,6 +61,10 @@ class SketchCbckManager {
 new class Sketch extends p5 {
 
 	// #region Fields.
+	/** @returns { number } */ distSq2d = (x1, y1, x2, y2) => this.sq(x2 - x1) + this.sq(y2 - y1);
+
+	/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ gl = undefined;
+
 	dialogueBox = {
 
 		convoIsLast: () => this.dialogueBox.idDialogue >= this.dialogueBox.convo.length - 1,
@@ -97,8 +102,8 @@ new class Sketch extends p5 {
 			this.cbcks.touchEnded.remove(this.dialogueBox.cbckTouchStartedForConvo);
 			this.cbcks.keyPressed.remove(this.dialogueBox.cbckKeyPressedForConvo);
 			this.player.resumeAllMovementControls();
-			this.npcs.collisionResponse = () => { };
-			this.dialogueBox.draw = () => { };
+			this.npcs.collisionResponse = NULLFN;
+			this.dialogueBox.draw = NULLFN;
 			this.dialogueBox.active = false;
 			this.dialogueBox.idDialogue = 0;
 			this.dialogueBox.cursor = 0;
@@ -114,7 +119,7 @@ new class Sketch extends p5 {
 			this.translate(0, this.height / 8);
 			const fade = 255 * this.dialogueBox.fade;
 
-			this.gl.disable(GL.DEPTH_TEST);
+			// this.gl.disable(GL.DEPTH_TEST);
 			const rr = 20;
 			const rh = 80;
 			const rw = this.width / 3;
@@ -154,11 +159,11 @@ new class Sketch extends p5 {
 			// #endregion
 
 			this.pop();
-			this.gl.enable(GL.DEPTH_TEST);
+			// this.gl.enable(GL.DEPTH_TEST);
 
 		},
 
-		draw: () => { },
+		draw: NULLFN,
 
 		idDialogue: 0,
 
@@ -220,55 +225,49 @@ new class Sketch extends p5 {
 		// #region Pause/Resume controls.
 		resumeAllMovementControls: () => {
 
-			this.player.keyboardMovementControls = this.player.keyboardControlsImpl;
+			this.player.movementControls = this.player.movementControlsImpl;
+			this.cbcks.touchStarted.add(this.stick.cbckTouchStarted);
 
 		},
 
 		pauseAllMovementControls: () => {
 
-			this.player.keyboardMovementControls = () => { };
+			this.cbcks.touchStarted.remove(this.stick.cbckTouchStarted);
+			this.player.movementControls = NULLFN;
 
 		},
 		// #endregion
 
 		// #region Keyboard controls.
-		keyboardMovementControls: () => { }, // Called in `Sketch::draw()`!
-
-		keyboardControlsImpl: () => {
+		movementControlsImpl: () => {
 
 			// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
 			// than via some callback that adds functions into a/an set/array to respond to movements.
 
 			if (this.keyIsDown(87)) {
 
-				this.player.posAngle.y -= this.player.speed;
+				this.player.posAngle.y -= this.player.speed * (this.deltaTime / 10);
 
 			}
 			if (this.keyIsDown(65)) {
 
-				this.player.posAngle.x -= this.player.speed;
+				this.player.posAngle.x -= this.player.speed * (this.deltaTime / 10);
 
 			}
 			if (this.keyIsDown(83)) {
 
-				this.player.posAngle.y += this.player.speed;
+				this.player.posAngle.y += this.player.speed * (this.deltaTime / 10);
 
 			}
 			if (this.keyIsDown(68)) {
 
-				this.player.posAngle.x += this.player.speed;
-
-			}
-
-			if (this.touches.length > 0) {
-
-				const t = this.touches[0];
-
-
+				this.player.posAngle.x += this.player.speed * (this.deltaTime / 10);
 
 			}
 
 		},
+
+		movementControls: NULLFN, // Called in `Sketch::draw()`!
 		// #endregion
 		// #endregion
 
@@ -307,7 +306,7 @@ new class Sketch extends p5 {
 				screen.lockOrientation
 			);
 
-			return typeof (method) === Screen ? method : () => { };
+			return typeof (method) === Screen ? method : NULLFN;
 
 		})(),
 
@@ -381,6 +380,170 @@ new class Sketch extends p5 {
 
 	};
 
+	stick = {
+
+		/** @type { p5.Vector } */ normalized: this.createVector(0, 0, 0),
+		/** @type { p5.Vector } */ base: this.createVector(0, 0, 45),
+		/** @type { p5.Vector } */ top: this.createVector(0, 0, 20),
+
+		/** @type { SketchCbck } */	cbckTouchStarted: () => {
+
+			this.stick.base.x = this.touches[0].x;
+			this.stick.base.y = this.touches[0].y;
+			this.stick.draw = this.stick.drawImpl;
+			return true;
+
+		},
+
+		/** @type { SketchCbck } */	cbckTouchMoved: () => {
+
+			// const x = this.touches[0].x - this.stick.base.x;
+			// const y = this.touches[0].y - this.stick.base.y;
+			// const a = this.atan2(y, x);
+
+			// this.stick.top.x = 1;
+			// this.stick.top.y = 1;
+			// this.stick.top.setHeading(a);
+
+			// // const m = this.sqrt(x * x + y * y);
+			// // this.stick.top.x *= m;
+			// // this.stick.top.y *= m;
+			// this.stick.top.x += this.stick.base.x;
+			// this.stick.top.y += this.stick.base.y;
+			return true;
+
+		},
+
+		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
+
+			this.stick.draw = NULLFN;
+			return true;
+
+		},
+
+		drawImpl: () => {
+
+			// This is rectangular!:
+
+			// this.stick.top.x = this.constrain(
+			// 	this.stick.top.x,
+			// 	this.stick.base.x - this.stick.base.z,
+			// 	this.stick.base.x + this.stick.base.z,
+			// );
+
+			// this.stick.top.y = this.constrain(
+			// 	this.stick.top.y,
+			// 	this.stick.base.y - this.stick.base.z,
+			// 	this.stick.base.y + this.stick.base.z,
+			// );
+
+			// #region Base.
+			this.push();
+			this.noFill();
+			this.curveDetail(3);
+			this.strokeWeight(8);
+			this.stroke(192);
+			this.circle(
+				this.stick.base.x,
+				this.stick.base.y,
+				this.stick.base.z * 2
+			);
+			this.pop();
+			// #endregion
+
+			// Old gold!
+			// const ty = this.touches[0].y;
+			// const tx = this.touches[0].x;
+
+			// const dx = tx - this.stick.base.x;
+			// const dy = ty - this.stick.base.y;
+			// const dist = this.abs(dy) + this.abs(dx);
+			// const mag = this.sqrt(this.sq(dx) + this.sq(dy));
+
+			// this.stick.normalized.z = mag;
+			// this.stick.normalized.x = dx / mag;
+			// this.stick.normalized.y = dy / mag;
+			// this.stick.dir = this.atan2(dy, dx) - this.QUARTER_PI;
+
+			// // #region Top.
+			// this.push();
+
+			// this.fill(64);
+			// this.noStroke();
+
+			// if (dist < this.stick.base.z) {
+
+			// 	// this.translate(tx, ty);
+			// 	this.circle(tx, ty, this.stick.top.z);
+			// 	// this.sphere(this.stick.top.z * 0.5, 6, 6);
+
+			// }
+			// else { // Render top circle on edges if the swipe isn't inside.
+
+			// 	this.translate(this.stick.base.x, this.stick.base.y);
+			// 	const edge = this.stick.base.z * 0.5;
+
+			// 	this.rotateZ(this.stick.dir);
+			// 	this.translate(edge, edge);
+			// 	this.circle(0, 0, this.stick.top.z);
+			// 	// this.sphere(this.stick.top.z * 0.5, 6, 6);
+
+			// }
+
+			// this.pop();
+			// // #endregion
+
+			const ty = this.touches[0].y;
+			const tx = this.touches[0].x;
+
+			const dx = tx - this.stick.base.x;
+			const dy = ty - this.stick.base.y;
+			const size = this.stick.base.z * 0.6775; // Derived off of the visual precision of `base.z = 150` and `top.z = 80` .
+			const mag = this.sqrt(this.sq(dx) + this.sq(dy));
+
+			this.stick.normalized.z = mag;
+			this.stick.normalized.x = dx / mag;
+			this.stick.normalized.y = dy / mag;
+			// this.stick.dir = this.atan2(dy, dx) - this.QUARTER_PI; // Arctan, then game input requires `p5.Vector::fromAngle()`,
+			// which is LITERALLY `{ .x = cos(theta), .y = sin(dir) }`! That's THREE trig ops!
+
+			// #region Top.
+			this.push();
+
+			this.fill(64);
+			this.noStroke();
+
+			if (mag < size) {
+
+				this.circle(tx, ty, this.stick.top.z);
+
+			}
+			else { // Render top circle RIGHT behind edges if the swipe isn't inside.
+
+				this.translate(
+					this.stick.base.x + (this.stick.normalized.x * size),
+					this.stick.base.y + (this.stick.normalized.y * size)
+				);
+				this.circle(0, 0, this.stick.top.z);
+
+				// Old gold. Worked PERFECTLY:
+				// const edge = this.stick.base.z * 0.5;
+				// this.rotateZ(this.stick.dir);
+				// this.translate(edge, edge);
+				// this.circle(0, 0, this.stick.top.z);
+
+			}
+
+			this.pop();
+			// #endregion
+
+		},
+
+		draw: NULLFN,
+		dir: 0,
+
+	};
+
 	npcs = {
 
 		/**
@@ -394,7 +557,7 @@ new class Sketch extends p5 {
 			// this.dialogueBox.active = true;
 			this.dialogueBox.draw = this.dialogueBox.drawImpl;
 
-			this.npcs.collisionResponse = () => { };
+			this.npcs.collisionResponse = NULLFN;
 			this.player.pauseAllMovementControls();
 
 			const convosAllNpcLast = this.npcs.conversations[p_idNpcDetectedLast];
@@ -419,20 +582,11 @@ new class Sketch extends p5 {
 
 		},
 
-		/** @type { p5.Vector[] } */
-		posAngles: [],
-
-		/** @type { () => void } */
-		collisionResponse: () => { },
-
-		/** @type { string[][] } */
-		conversations: [],
-
-		/** @type { number[] } */
-		idsConversation: [],
-
-		/** @type { number[] } */
-		idsDialogue: [],
+		/** @type { () => void 	} 	*/	collisionResponse: NULLFN,
+		/** @type { number[] 	}	*/	idsConversation: [],
+		/** @type { string[][] 	} 	*/	conversations: [],
+		/** @type { number[] 	}	*/	idsDialogue: [],
+		/** @type { p5.Vector[] } 	*/	posAngles: [],
 
 	};
 
@@ -444,6 +598,9 @@ new class Sketch extends p5 {
 		setup: () => {
 
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
+			this.cbcks.touchStarted.add(this.stick.cbckTouchStarted);
+			this.cbcks.touchMoved.add(this.stick.cbckTouchMoved);
+			this.cbcks.touchEnded.add(this.stick.cbckTouchEnded);
 			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
 
@@ -483,12 +640,12 @@ new class Sketch extends p5 {
 		},
 
 	};
-
-	/** @type { WebGL2RenderingContext | WebGLRenderingContext } */
-	gl = undefined;
 	// #endregion
 
 	draw() {
+		this.sketch.ptouches = this.touches;
+		this.player.movementControls();
+
 		// No longer works!
 		// this.push();
 		//
@@ -516,9 +673,6 @@ new class Sketch extends p5 {
 			0, 0, 0,
 			0, 1, 0
 		);
-
-		this.sketch.ptouches = this.touches;
-		this.player.keyboardMovementControls();
 
 		// #region Player render.
 		this.push();
@@ -593,7 +747,6 @@ new class Sketch extends p5 {
 
 			this.pop();
 
-
 		}
 
 		this.pop();
@@ -607,19 +760,21 @@ new class Sketch extends p5 {
 		// Aids off-3D rendering!:
 		this.translate(this.width * -0.5, this.height * -0.5);
 
+		this.stick.draw();
+
 		// Touch debugging:
-		if (this.touches.length != 0) {
+		// if (this.touches.length != 0) {
 
-			this.push();
+		// 	this.push();
 
-			this.fill(255);
-			this.noStroke();
-			const t = this.touches[0];
-			this.circle(t.x, t.y, 25);
+		// 	this.fill(255);
+		// 	this.noStroke();
+		// 	const t = this.touches[0];
+		// 	this.circle(t.x, t.y, 25);
 
-			this.pop();
+		// 	this.pop();
 
-		}
+		// }
 		// #endregion
 	}
 
@@ -631,6 +786,7 @@ new class Sketch extends p5 {
 		this.window.resumeAttemptingResizeEveryResize();
 		this.textFont(this.rpg.fontSonoRegular);
 		this.gl = this.sketch.renderer.GL;
+		this.frameRate(1000);
 		this.rpg.setup();
 	}
 
