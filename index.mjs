@@ -363,12 +363,95 @@ new class Sketch extends p5 {
 
 		/** @type { SketchCbck } */	cbckTouchMoved: () => {
 
+			const { x, y } = this.touches[0];
+			const arrows = [
+
+				{ // W
+					x: this.dpad.base.x + this.dpad.gap,
+					y: this.dpad.base.y - (this.dpad.gap * (this.dpad.base.z * 1.35)),
+				},
+				{ // A
+					x: this.dpad.base.x - (this.dpad.gap * (this.dpad.base.z * 1.35)),
+					y: this.dpad.base.y + this.dpad.gap,
+				},
+				{ // S
+					x: this.dpad.base.x + this.dpad.gap,
+					y: this.dpad.base.y + (this.dpad.gap * (this.dpad.base.z * 1.35)),
+				},
+				{ // D
+					x: this.dpad.base.x + (this.dpad.gap * (this.dpad.base.z * 1.35)),
+					y: this.dpad.base.y + this.dpad.gap,
+				},
+
+			];
+
+			const pressed = [false, false, false, false];
+
+			for (let i = 0; i < 4; i++) {
+
+				let top = arrows[i].y - (this.dpad.base.z * 0.5); // W
+				let lef = arrows[i].x - (this.dpad.base.z * 0.5); // A
+				let bot = arrows[i].y + (this.dpad.base.z * 0.5); // S
+				let rig = arrows[i].x + (this.dpad.base.z * 0.5); // D
+
+				// Offset for the tip of each arrow:
+				const offset = 0; // this.dpad.gap * this.dpad.base.z * 0.85;
+
+				switch (i) {
+
+					case 0: { // W
+
+						bot += offset;
+
+					} break;
+
+					case 1: { // A
+
+						rig += offset;
+
+					} break;
+
+					case 2: { // S
+
+						top += offset;
+
+					} break;
+
+					case 3: { // D
+
+						lef += offset;
+
+					} break;
+
+				}
+
+				pressed[i] =
+					rig > x
+					&&
+					lef < x
+					&&
+					bot > y
+					&&
+					top < y
+					;
+
+			}
+
+			this.dpad.pressed.w = pressed[0];
+			this.dpad.pressed.a = pressed[1];
+			this.dpad.pressed.s = pressed[2];
+			this.dpad.pressed.d = pressed[3];
+
 			return true;
 
 		},
 
 		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
 
+			this.dpad.pressed.w = false;
+			this.dpad.pressed.a = false;
+			this.dpad.pressed.s = false;
+			this.dpad.pressed.d = false;
 			this.dpad.draw = NULLFN;
 			return true;
 
@@ -426,57 +509,6 @@ new class Sketch extends p5 {
 			arrow();
 			this.pop();
 			// #endregion
-
-			this.pop();
-
-			const arrows = [
-
-				{
-					rotation: 0,
-					x: this.dpad.base.x,
-					y: this.dpad.base.y - this.dpad.gap,
-				},
-
-				{
-					rotation: -this.HALF_PI,
-					x: this.dpad.base.x - this.dpad.gap,
-					y: this.dpad.base.y,
-				},
-				{
-					rotation: this.PI,
-					x: this.dpad.base.x,
-					y: this.dpad.base.y + this.dpad.gap,
-				},
-				{
-					rotation: this.HALF_PI,
-					x: this.dpad.base.x + this.dpad.gap,
-					y: this.dpad.base.y,
-				},
-
-			];
-
-			this.push();
-
-			// this.translate(this.dpad.base.x, this.dpad.base.y);
-			this.rectMode(this.CENTER);
-			this.stroke(0, 255, 0);
-			this.strokeWeight(1);
-			this.noFill();
-
-			for (const a of arrows) {
-
-				const w = this.dpad.base.z * 0.6;
-				const h = this.dpad.base.z * 0.9;
-
-				this.push();
-
-				this.rotateZ(a.rotation);
-				this.rect(w + a.x, h + a.y, w, h);
-				// console.log(`x: \`${a.x.toFixed(1)}\`, y: \`${a.y.toFixed(1)}\`.`);
-
-				this.pop();
-
-			}
 
 			this.pop();
 
@@ -660,9 +692,12 @@ new class Sketch extends p5 {
 
 			const overlapping = !(
 				pRight < nLeft
-				|| pLeft > nRight
-				|| pBelow < nAbove
-				|| pAbove > nBelow
+				||
+				pLeft > nRight
+				||
+				pBelow < nAbove
+				||
+				pAbove > nBelow
 			);
 
 			if (overlapping) {
