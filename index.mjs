@@ -191,14 +191,12 @@ new class Sketch extends p5 {
 		resumeAllMovementControls: () => {
 
 			this.player.movementControls = this.player.movementControlsImpl;
-			this.cbcks.touchStarted.add(this.stick.cbckTouchStarted);
 			this.cbcks.touchStarted.add(this.dpad.cbckTouchStarted);
 
 		},
 
 		pauseAllMovementControls: () => {
 
-			this.cbcks.touchStarted.remove(this.stick.cbckTouchStarted);
 			this.cbcks.touchStarted.remove(this.dpad.cbckTouchStarted);
 			this.player.movementControls = NULLFN;
 
@@ -213,35 +211,24 @@ new class Sketch extends p5 {
 
 			const dt = this.deltaTime * 0.1; // Actually perfy, 'cause it also saves an access.
 
-			if (this.keyIsDown(87)) {
+			if (this.keyIsDown(87) || this.dpad.pressed.w) {
 
 				this.player.posAngle.y -= this.player.speed * dt;
 
 			}
-			if (this.keyIsDown(65)) {
+			if (this.keyIsDown(65) || this.dpad.pressed.a) {
 
 				this.player.posAngle.x -= this.player.speed * dt;
 
 			}
-			if (this.keyIsDown(83)) {
+			if (this.keyIsDown(83) || this.dpad.pressed.s) {
 
 				this.player.posAngle.y += this.player.speed * dt;
 
 			}
-			if (this.keyIsDown(68)) {
+			if (this.keyIsDown(68) || this.dpad.pressed.d) {
 
 				this.player.posAngle.x += this.player.speed * dt;
-
-			}
-
-			if (this.stick.draw == this.stick.drawImpl) { // Control if stick is rendering.
-
-				// Aaaaaaaand this is why I hate square roots.
-				const nx = this.stick.normalized.x;
-				const ny = this.stick.normalized.y;
-
-				this.player.posAngle.x += nx ? nx : 0;
-				this.player.posAngle.y += ny ? ny : 0;
 
 			}
 
@@ -343,13 +330,13 @@ new class Sketch extends p5 {
 
 	cbcks = {
 
-		windowResized: new SketchCbckManager(),		// Window callback.
+		touchEnded: new SketchCbckManager(),		// Touchscreens callback.
+		touchMoved: new SketchCbckManager(),		// Touchscreens callback.
+		touchStarted: new SketchCbckManager(),		// Touchscreens callback.
 		keyReleased: new SketchCbckManager(),		// Keyboard callback.
 		keyPressed: new SketchCbckManager(),		// Keyboard callback.
 		keyTyped: new SketchCbckManager(),			// Keyboard callback.
-		touchEnded: new SketchCbckManager(),		// Touch callback.
-		touchMoved: new SketchCbckManager(),		// Touch callback.
-		touchStarted: new SketchCbckManager(),		// Touch callback.
+		windowResized: new SketchCbckManager(),		// Window callback.
 		mouseMoved: new SketchCbckManager(),		// Mouse callback.
 		mouseWheel: new SketchCbckManager(),		// Mouse callback.
 		mouseClicked: new SketchCbckManager(),		// Mouse callback.
@@ -360,123 +347,9 @@ new class Sketch extends p5 {
 
 	};
 
-	stick = {
-
-		/** @type { p5.Vector } */ normalized: this.createVector(0, 0, 0),
-		/** @type { p5.Vector } */ base: this.createVector(0, 0, 45),
-		/** @type { p5.Vector } */ top: this.createVector(0, 0, 20),
-
-		/** @type { SketchCbck } */	cbckTouchStarted: () => {
-
-			// All three of these exist for cosmetic reasons:
-			this.stick.base.x = this.touches[0].x;
-			this.stick.base.y = this.touches[0].y;
-			this.stick.draw = this.stick.drawImpl;
-			return true;
-
-		},
-
-		/** @type { SketchCbck } */	cbckTouchMoved: () => {
-
-			// #region Touches magic!
-			const ty = this.touches[0].y;
-			const tx = this.touches[0].x;
-
-			const dx = tx - this.stick.base.x;
-			const dy = ty - this.stick.base.y;
-			// const mag = this.createVector(dx, dy).mag(); // A performance test for mobile! A FAILED test!
-			// const mag = this.sqrt(this.sq(dx) + this.sq(dy)); // Even `p5::abs()` CAN'T save this from negative numbers.
-			// const mag = Math.sqrt(this.sq(dx) + this.sq(dy)); // Direct-access speed number up?
-			const mag = Math.pow(this.sq(dx) + this.sq(dy), 0.5); // Apparently this can be faster for math'tical reasons.
-
-			this.stick.normalized.z = mag;
-			this.stick.normalized.x = dx / mag;
-			this.stick.normalized.y = dy / mag;
-			// #endregion
-
-			return true;
-
-		},
-
-		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
-
-			this.stick.draw = NULLFN;
-			return true;
-
-		},
-
-		drawImpl: () => {
-
-			// #region Base rendering.
-			this.push();
-
-			this.strokeWeight(8);
-			this.curveDetail(1);
-			this.stroke(192);
-			this.noFill();
-			this.circle(
-				this.stick.base.x,
-				this.stick.base.y,
-				this.stick.base.z * 2
-			);
-
-			this.pop();
-			// #endregion
-
-			// #region Touches magic! // Now in `this::stick::cbckTouchMoved()`.
-			// const ty = this.touches[0].y;
-			// const tx = this.touches[0].x;
-
-			// const dx = tx - this.stick.base.x;
-			// const dy = ty - this.stick.base.y;
-			// // const mag = this.createVector(dx, dy).mag(); // A performance test for mobile! A FAILED test!
-			// // const mag = this.sqrt(this.sq(dx) + this.sq(dy)); // Even `p5::abs()` CAN'T save this from negative numbers.
-			// // const mag = Math.sqrt(this.sq(dx) + this.sq(dy)); // Direct-access speed number up?
-			// const mag = Math.pow(this.sq(dx) + this.sq(dy), 0.5); // Apparently this can be faster for math'tical reasons.
-
-			// this.stick.normalized.z = mag;
-			// this.stick.normalized.x = dx / mag;
-			// this.stick.normalized.y = dy / mag;
-			// #endregion
-
-			// #region Top rendering.
-			this.push();
-
-			this.fill(64);
-			this.noStroke();
-			this.curveDetail(1);
-			const ty = this.touches[0].y;
-			const tx = this.touches[0].x;
-			const size = this.stick.base.z * 0.6775; // Derived off of the visual precision of `base.z = 150` and `top.z = 80` .
-
-			if (this.stick.normalized.z < size) {
-
-				this.circle(tx, ty, this.stick.top.z);
-
-			}
-			else { // Render top circle RIGHT behind edges if the swipe isn't inside.
-
-				this.translate(
-					this.stick.base.x + (this.stick.normalized.x * size),
-					this.stick.base.y + (this.stick.normalized.y * size)
-				);
-				this.circle(0, 0, this.stick.top.z);
-
-			}
-
-			this.pop();
-			// #endregion
-
-		},
-
-		draw: NULLFN,
-
-	};
-
 	dpad = {
 
 		/** @type { p5.Vector } */ base: this.createVector(0, 0, 50),
-		/** @type { p5.Vector } */ gap: 0.9,
 
 		/** @type { SketchCbck } */	cbckTouchStarted: () => {
 
@@ -488,152 +361,11 @@ new class Sketch extends p5 {
 
 		},
 
-		/** @type { SketchCbck } */ cbckTouchMoved: () => {
-
-			const ptpoly = (x, y, v) => {
-
-				let inside = false;
-
-				for (let i = 0, j = v.length - 1; i < v.length; j = i++) {
-
-					const xi = v[i].x; /*	*/ const yi = v[i].y;
-					const xj = v[j].x; /*	*/ const yj = v[j].y;
-
-					const intersect =
-						(yi > y) != (yj > y)
-						&&
-
-						x < (xj - xi)
-
-						/* */ * (y - yi)
-
-						/ (yj - yi + 1e-12) + xi
-						;
-
-					if (intersect) {
-
-						inside = !inside;
-
-					}
-
-				}
-
-				return inside;
-
-			};
-
-			// if (this.touches.length < 1) {
-			//
-			// 	return true;
-			//
-			// }
-
-			const dt = this.deltaTime * 0.1;
-			const base = this.dpad.base;
-			const pt = this.touches[0];
-			const gap = this.dpad.gap;
-			const vertices = [
-
-				{ x: -0.5, 	/*	*/ y: 0.35 },
-				{ x: 0.5, 	/*	*/ y: 0.35 },
-				{ x: 0.5, 	/*	*/ y: -0.35 },
-				{ x: 0, 	/*	*/ y: -0.85 },
-				{ x: -0.5, 	/*	*/ y: -0.35 },
-
-			];
-
-			for (const dir of [
-
-				{ dx: 0, 	/* */ dy: -gap, /** */ move: () => this.player.posAngle.y -= this.player.speed * dt }, 	// W
-				{ dx: -gap, /* */ dy: 0, 	/** */ move: () => this.player.posAngle.x -= this.player.speed * dt }, 	// A
-				{ dx: 0, 	/* */ dy: gap, 	/** */ move: () => this.player.posAngle.y += this.player.speed * dt }, 	// S
-				{ dx: gap, 	/* */ dy: 0, 	/** */ move: () => this.player.posAngle.x += this.player.speed * dt }, 	// D
-
-			]) {
-
-				const localX = (pt.x - (base.x + dir.dx)) / base.z;
-				const localY = (pt.y - (base.y + dir.dy)) / base.z;
-
-				if (ptpoly(localX, localY, vertices)) {
-
-					dir.move();
-
-				}
-
-			}
+		/** @type { SketchCbck } */	cbckTouchMoved: () => {
 
 			return true;
 
 		},
-
-		// /** @type { SketchCbck } */	cbckTouchMoved: () => {
-
-		// 	const dt = this.deltaTime * 0.1;
-		// 	const base = this.dpad.base;
-		// 	const gap = this.dpad.gap;
-
-		// 	/** Takes D-pad button's center. */
-		// 	const dpadButtonTouched = (x, y) => {
-
-		// 		const pt = this.touches[0];
-		// 		const w = 3 * 0.06;
-		// 		const h = 3 * 0.09;
-
-		// 		const top = y - (h * 0.5);
-		// 		const left = x - (w * 0.5);
-		// 		const right = x + (w * 0.5);
-		// 		const bottom = y + (h * 0.5);
-
-		// 		return !(pt.x < left || pt.x > right || pt.y < top || pt.y > bottom);
-
-		// 	};
-
-		// 	// if (!dpadButtonTouched(base.x, base.y)) {
-
-		// 	// 	console.log('ded');
-
-		// 	// 	return true;
-
-		// 	// }
-
-		// 	// #region Intersection detection.
-		// 	if (dpadButtonTouched(
-		// 		base.x,
-		// 		base.y - gap
-		// 	)) { // W
-
-		// 		this.player.posAngle.y -= this.player.speed * dt;
-
-		// 	}
-		// 	if (dpadButtonTouched(
-		// 		base.x - gap,
-		// 		base.y
-		// 	)) { // A
-
-		// 		this.player.posAngle.x -= this.player.speed * dt;
-
-		// 	}
-		// 	if (dpadButtonTouched(
-		// 		base.x,
-		// 		base.y + gap
-		// 	)) { // S
-
-		// 		this.player.posAngle.y += this.player.speed * dt;
-
-		// 	}
-		// 	if (dpadButtonTouched(
-		// 		base.x + gap,
-		// 		base.y
-		// 	)) { // D
-
-		// 		this.player.posAngle.x += this.player.speed * dt;
-
-		// 	}
-		// 	// #endregion
-
-		// 	return true;
-
-		// },
 
 		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
 
@@ -642,12 +374,13 @@ new class Sketch extends p5 {
 
 		},
 
+		/** @type { p5.Vector } */ gap: 0.9,
+
 		drawImpl: () => {
 
 			this.push();
 
-			this.translate(this.dpad.base.x, this.dpad.base.y);
-
+			// #region Arrow rendering.
 			const arrow = () => {
 
 				this.beginShape(this.TESS);
@@ -664,6 +397,7 @@ new class Sketch extends p5 {
 
 			};
 
+			this.translate(this.dpad.base.x, this.dpad.base.y);
 			this.scale(this.dpad.base.z);
 			this.fill(127, 127);
 			this.noStroke();
@@ -691,8 +425,69 @@ new class Sketch extends p5 {
 			this.rotateZ(this.HALF_PI);
 			arrow();
 			this.pop();
+			// #endregion
 
 			this.pop();
+
+			const arrows = [
+
+				{
+					rotation: 0,
+					x: this.dpad.base.x,
+					y: this.dpad.base.y - this.dpad.gap,
+				},
+
+				{
+					rotation: -this.HALF_PI,
+					x: this.dpad.base.x - this.dpad.gap,
+					y: this.dpad.base.y,
+				},
+				{
+					rotation: this.PI,
+					x: this.dpad.base.x,
+					y: this.dpad.base.y + this.dpad.gap,
+				},
+				{
+					rotation: this.HALF_PI,
+					x: this.dpad.base.x + this.dpad.gap,
+					y: this.dpad.base.y,
+				},
+
+			];
+
+			this.push();
+
+			// this.translate(this.dpad.base.x, this.dpad.base.y);
+			this.rectMode(this.CENTER);
+			this.stroke(0, 255, 0);
+			this.strokeWeight(1);
+			this.noFill();
+
+			for (const a of arrows) {
+
+				const w = this.dpad.base.z * 0.6;
+				const h = this.dpad.base.z * 0.9;
+
+				this.push();
+
+				this.rotateZ(a.rotation);
+				this.rect(w + a.x, h + a.y, w, h);
+				// console.log(`x: \`${a.x.toFixed(1)}\`, y: \`${a.y.toFixed(1)}\`.`);
+
+				this.pop();
+
+			}
+
+			this.pop();
+
+		},
+
+		pressed: {
+
+			w: false,
+			a: false,
+			s: false,
+			d: false,
 
 		},
 
@@ -755,15 +550,9 @@ new class Sketch extends p5 {
 
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
 
-			// this.cbcks.touchStarted.add(this.dpad.cbckTouchStarted);
+			// `this::dpad::cbckTouchStarted` for control objects is added by `this::player::resumeAllMovementControls()`.
 			this.cbcks.touchMoved.add(this.dpad.cbckTouchMoved);
 			this.cbcks.touchEnded.add(this.dpad.cbckTouchEnded);
-
-			// this.cbcks.touchStarted.add(this.stick.cbckTouchStarted);
-			this.cbcks.touchMoved.add(this.stick.cbckTouchMoved);
-			this.cbcks.touchEnded.add(this.stick.cbckTouchEnded);
-
-			// `this::*::cbckTouchStarted` for control objects is added by `this::player::resumeAllMovementControls()`.
 
 			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
@@ -921,10 +710,13 @@ new class Sketch extends p5 {
 
 		// #region 2D rendering.
 		this.resetMatrix();
-		this.ortho(0, this.width, -this.height, 0, -1000, 1000); // Ortho for HUD
+		this.ortho(
+			0, this.width,
+			-this.height, 0,
+			-1000, 1000,
+		);
 
 		this.dialogueBox.draw();
-		// this.stick.draw();
 		this.dpad.draw();
 		// #endregion
 	}
@@ -937,7 +729,7 @@ new class Sketch extends p5 {
 		this.window.resumeAttemptingResizeEveryResize();
 		this.textFont(this.rpg.fontSonoRegular);
 		this.gl = this.sketch.renderer.GL;
-		this.frameRate(60);
+		this.frameRate(72);
 		this.rpg.setup();
 	}
 
