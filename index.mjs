@@ -3,6 +3,35 @@ import p5 from "p5";
 const NULLFN = () => { };
 const GL = WebGLRenderingContext;
 
+// #region Phone detection.
+
+// This test comes from [ http://detectmobilebrowsers.com/ ]!
+// Thank you, [ https://stackoverflow.com/questions/11381673/detecting-a-mobile-browser ]!
+
+const userAgentRead = () => (
+
+	navigator.userAgent
+	||
+	navigator.vendor
+	||
+	window.opera
+
+);
+
+const onPhone = (p_userAgent) => (
+
+	/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i
+		.test(p_userAgent)
+	||
+	/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i
+		.test(p_userAgent.substr(0, 4))
+
+);
+
+let s_phone = onPhone(userAgentRead());
+
+// #endregion
+
 /** @type { HTMLCanvasElement } */
 const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 
@@ -62,8 +91,6 @@ new class Sketch extends p5 {
 
 	// #region Fields.
 	/** @returns { number } */ distSq2d = (x1, y1, x2, y2) => this.sq(x2 - x1) + this.sq(y2 - y1);
-
-	/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ gl = undefined;
 
 	dialogueBox = {
 
@@ -186,18 +213,29 @@ new class Sketch extends p5 {
 
 	player = {
 
-		// #region Other stuff.
+		// #region Controls stuff.
 		// #region Pause/Resume controls.
 		resumeAllMovementControls: () => {
 
 			this.player.movementControls = this.player.movementControlsImpl;
-			this.cbcks.touchStarted.add(this.dpad.cbckTouchStarted);
+
+			if (s_phone) {
+
+				this.dpad.draw = this.dpad.drawImpl;
+				this.cbcks.touchStarted.add(this.dpad.cbckTouchStarted);
+
+			}
 
 		},
 
 		pauseAllMovementControls: () => {
 
-			this.cbcks.touchStarted.remove(this.dpad.cbckTouchStarted);
+			if (s_phone) {
+
+				this.cbcks.touchStarted.remove(this.dpad.cbckTouchStarted);
+
+			}
+
 			this.player.movementControls = NULLFN;
 
 		},
@@ -208,6 +246,12 @@ new class Sketch extends p5 {
 
 			// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
 			// than via some callback that adds functions into a `Set` / an array to respond to movements.
+
+			if (this.touches.length > 0) { // Have to poll this one because p5 orders events like an EDT would!
+
+				this.dpad.touchControls();
+
+			}
 
 			const dt = this.deltaTime * 0.1; // Actually perfy, 'cause it also saves an access.
 
@@ -252,7 +296,7 @@ new class Sketch extends p5 {
 
 		isTouching: false,
 
-		speed: 3,
+		speed: 1.5,
 
 		size: 20,
 
@@ -325,6 +369,7 @@ new class Sketch extends p5 {
 		/** @type { HTMLElement } */ elementCanvasParent: undefined,
 		/** @type { HTMLCanvasElement } */ elementCanvas: undefined,
 		/** @type { { x: number, y: number, id: number, }[] } */ ptouches: [],
+		/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ gl: undefined,
 
 	};
 
@@ -349,37 +394,89 @@ new class Sketch extends p5 {
 
 	dpad = {
 
-		/** @type { p5.Vector } */ base: this.createVector(0, 0, 50),
+		/** @type { p5.Vector } */ base: this.createVector(0, 0, 35),
 
-		/** @type { SketchCbck } */	cbckTouchStarted: () => {
+		/** @type { SketchCbck } */	onTouchStartedAfterWindowResized: () => {
 
-			// All three of these exist for cosmetic reasons:
-			this.dpad.base.x = this.touches[0].x;
-			this.dpad.base.y = this.touches[0].y;
-			this.dpad.draw = this.dpad.drawImpl;
+			s_phone = onPhone(userAgentRead());
+
+			if (s_phone) {
+
+				this.dpad.draw = this.dpad.drawImpl;
+
+			}
+
+			return false;
+
+		},
+
+		/** @type { SketchCbck } */	onKeyPressedAfterWindowResized: () => {
+
+			s_phone = onPhone(userAgentRead());
+
+			if (!s_phone) {
+
+				this.dpad.draw = NULLFN;
+
+			}
+
+			return false;
+
+		},
+
+		/** @type { SketchCbck } */	cbckWindowResized: () => {
+
+			this.cbcks.touchStarted.add(this.dpad.onTouchStartedAfterWindowResized);
+			this.cbcks.keyPressed.add(this.dpad.onKeyPressedAfterWindowResized);
+			this.dpad.base.y = this.height * 0.6;
+			this.dpad.base.x = this.width / 4;
+
 			return true;
 
 		},
 
-		/** @type { SketchCbck } */	cbckTouchMoved: () => {
+		/** @type { SketchCbck } */	cbckTouchStarted: () => {
 
+			// All three of these exist for cosmetic reasons:
+			// this.cbcks.touchMoved.add(this.dpad.cbckTouchMoved);
+			// this.dpad.base.x = this.touches[0].x;
+			// this.dpad.base.y = this.touches[0].y;
+			return true;
+
+		},
+
+		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
+
+			// this.cbcks.touchMoved.remove(this.dpad.cbckTouchMoved);
+			this.dpad.pressed.w = false;
+			this.dpad.pressed.a = false;
+			this.dpad.pressed.s = false;
+			this.dpad.pressed.d = false;
+			return true;
+
+		},
+
+		/** @type { SketchCbck } */	touchControls: () => {
+
+			// The `1.35` factor allows scaling for arrow tips:
+			const scale = this.dpad.base.z * 1.35;
 			const { x, y } = this.touches[0];
 			const arrows = [
 
 				{ // W
 					x: this.dpad.base.x + this.dpad.gap,
-					y: this.dpad.base.y - (this.dpad.gap * (this.dpad.base.z * 1.35)),
+					y: this.dpad.base.y - (this.dpad.gap * scale),
 				},
 				{ // A
-					x: this.dpad.base.x - (this.dpad.gap * (this.dpad.base.z * 1.35)),
+					x: this.dpad.base.x - (this.dpad.gap * scale),
 					y: this.dpad.base.y + this.dpad.gap,
 				},
 				{ // S
 					x: this.dpad.base.x + this.dpad.gap,
-					y: this.dpad.base.y + (this.dpad.gap * (this.dpad.base.z * 1.35)),
+					y: this.dpad.base.y + (this.dpad.gap * scale),
 				},
 				{ // D
-					x: this.dpad.base.x + (this.dpad.gap * (this.dpad.base.z * 1.35)),
+					x: this.dpad.base.x + (this.dpad.gap * scale),
 					y: this.dpad.base.y + this.dpad.gap,
 				},
 
@@ -389,41 +486,10 @@ new class Sketch extends p5 {
 
 			for (let i = 0; i < 4; i++) {
 
-				let top = arrows[i].y - (this.dpad.base.z * 0.5); // W
-				let lef = arrows[i].x - (this.dpad.base.z * 0.5); // A
-				let bot = arrows[i].y + (this.dpad.base.z * 0.5); // S
-				let rig = arrows[i].x + (this.dpad.base.z * 0.5); // D
-
-				// Offset for the tip of each arrow:
-				const offset = 0; // this.dpad.gap * this.dpad.base.z * 0.85;
-
-				switch (i) {
-
-					case 0: { // W
-
-						bot += offset;
-
-					} break;
-
-					case 1: { // A
-
-						rig += offset;
-
-					} break;
-
-					case 2: { // S
-
-						top += offset;
-
-					} break;
-
-					case 3: { // D
-
-						lef += offset;
-
-					} break;
-
-				}
+				const top = arrows[i].y - (this.dpad.base.z * 0.5); // W
+				const lef = arrows[i].x - (this.dpad.base.z * 0.5); // A
+				const bot = arrows[i].y + (this.dpad.base.z * 0.5); // S
+				const rig = arrows[i].x + (this.dpad.base.z * 0.5); // D
 
 				pressed[i] =
 					rig > x
@@ -442,17 +508,6 @@ new class Sketch extends p5 {
 			this.dpad.pressed.s = pressed[2];
 			this.dpad.pressed.d = pressed[3];
 
-			return true;
-
-		},
-
-		/** @type {	SketchCbck } */ cbckTouchEnded: () => {
-
-			this.dpad.pressed.w = false;
-			this.dpad.pressed.a = false;
-			this.dpad.pressed.s = false;
-			this.dpad.pressed.d = false;
-			this.dpad.draw = NULLFN;
 			return true;
 
 		},
@@ -514,6 +569,8 @@ new class Sketch extends p5 {
 
 		},
 
+		draw: NULLFN,
+
 		pressed: {
 
 			w: false,
@@ -522,8 +579,6 @@ new class Sketch extends p5 {
 			d: false,
 
 		},
-
-		draw: NULLFN,
 
 	};
 
@@ -583,11 +638,13 @@ new class Sketch extends p5 {
 			this.npcs.collisionResponse = this.npcs.collisionResponseOverworld;
 
 			// `this::dpad::cbckTouchStarted` for control objects is added by `this::player::resumeAllMovementControls()`.
-			this.cbcks.touchMoved.add(this.dpad.cbckTouchMoved);
+			// this.cbcks.touchMoved.add(this.dpad.cbckTouchMoved); // Added by `this::dpad::cbckTouchStarted()`.
+			this.cbcks.windowResized.add(this.dpad.cbckWindowResized);
 			this.cbcks.touchEnded.add(this.dpad.cbckTouchEnded);
 
-			this.player.resumeAllMovementControls();
 			this.textFont(this.rpg.fontSonoRegular);
+			this.player.resumeAllMovementControls();
+			this.dpad.cbckWindowResized();
 
 			this.npcs.create(
 				this.createVector(100, 0),
@@ -622,6 +679,12 @@ new class Sketch extends p5 {
 				],
 			);
 
+			if (s_phone) {
+
+				this.dpad.draw = this.dpad.drawImpl;
+
+			}
+
 		},
 
 	};
@@ -643,7 +706,7 @@ new class Sketch extends p5 {
 		// this.pop();
 		this.background(0);
 
-		// this.push();
+		this.push();
 		// #region Camera!
 		// Heck, my values work exactly LIKE the defaults!
 		this.perspective(
@@ -654,8 +717,8 @@ new class Sketch extends p5 {
 		); // (Okay, their FOV IS different and I can't find it for some reason.)
 
 		this.camera(
-			0, 0, this.width / 4,
-			0, 0, 0,
+			this.player.posAngle.x, this.player.posAngle.y, this.width / 4,
+			this.player.posAngle.x, this.player.posAngle.y, 0,
 			0, 1, 0
 		);
 
@@ -741,7 +804,7 @@ new class Sketch extends p5 {
 		// #endregion
 
 		// #endregion
-		// this.pop();
+		this.pop();
 
 		// #region 2D rendering.
 		this.resetMatrix();
@@ -762,8 +825,8 @@ new class Sketch extends p5 {
 		this.window.resumeAttemptingFullscreenEveryPress();
 		this.window.orientationLock("landscape-primary");
 		this.window.resumeAttemptingResizeEveryResize();
+		this.sketch.gl = this.sketch.renderer.GL;
 		this.textFont(this.rpg.fontSonoRegular);
-		this.gl = this.sketch.renderer.GL;
 		this.frameRate(72);
 		this.rpg.setup();
 	}
