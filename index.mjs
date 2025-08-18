@@ -241,7 +241,23 @@ new class Sketch extends p5 {
 		},
 		// #endregion
 
-		// #region Keyboard controls.
+		// #region Control callbacks.
+		/** @type { SketchCbck } */ cbckTouchStarted: () => {
+
+			this.player.movementControls();
+
+			return true;
+
+		},
+
+		/** @type { SketchCbck } */ cbckKeyPressed: () => {
+
+			this.player.movementControls();
+
+			return true;
+
+		},
+
 		movementControlsImpl: () => {
 
 			// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
@@ -601,10 +617,12 @@ new class Sketch extends p5 {
 			this.cbcks.keyPressed.add(this.dialogueBox.cbckKeyPressedForConvo);
 			this.cbcks.touchStarted.add(this.dialogueBox.cbckTouchStartedForConvo);
 
-			const convosAllNpcLast = this.npcs.conversations[p_idNpcDetectedLast];
-			const idConvoCurrent = this.npcs.idsConversation[p_idNpcDetectedLast];
-			this.dialogueBox.convo = convosAllNpcLast[idConvoCurrent];
+			const convos = this.npcs.conversations[p_idNpcDetectedLast]; // All of the NPC's convos.
+			const idConvo = this.npcs.idsConversation[p_idNpcDetectedLast]; // ID of convo to carry out.
+			this.dialogueBox.convo = convos[idConvo];
 
+			const idNext = idConvo + 1;
+			this.npcs.idsConversation[p_idNpcDetectedLast] = idNext == convos.length ? idConvo : idNext;
 		},
 
 		/**
@@ -614,17 +632,17 @@ new class Sketch extends p5 {
 		create: (p_posAngle, p_conversations) => {
 
 			this.npcs.idsDialogue.push(0);
-			this.npcs.posAngles.push(p_posAngle);
 			this.npcs.idsConversation.push(0);
+			this.npcs.posAngles.push(p_posAngle);
 			this.npcs.conversations.push(p_conversations);
 
 		},
 
-		/** @type { () => void 	} 	*/	collisionResponse: NULLFN,
-		/** @type { number[] 	}	*/	idsConversation: [],
-		/** @type { string[][] 	} 	*/	conversations: [],
-		/** @type { number[] 	}	*/	idsDialogue: [],
-		/** @type { p5.Vector[] } 	*/	posAngles: [],
+		/** @type { () => void 	} */ collisionResponse: NULLFN,
+		/** @type { number[] 	} */ idsConversation: [],
+		/** @type { string[][] 	} */ conversations: [],
+		/** @type { number[] 	} */ idsDialogue: [],
+		/** @type { p5.Vector[] } */ posAngles: [],
 
 	};
 
@@ -642,12 +660,16 @@ new class Sketch extends p5 {
 			this.cbcks.windowResized.add(this.dpad.cbckWindowResized);
 			this.cbcks.touchEnded.add(this.dpad.cbckTouchEnded);
 
+			this.cbcks.touchStarted.add(this.player.cbckTouchStarted);
+			this.cbcks.keyPressed.add(this.player.cbckKeyPressed);
+
 			this.textFont(this.rpg.fontSonoRegular);
 			this.player.resumeAllMovementControls();
 			this.dpad.cbckWindowResized();
 
+			// Lady:
 			this.npcs.create(
-				this.createVector(100, 0),
+				this.createVector(150, -75),
 				// All conversations:
 				[
 
@@ -663,19 +685,38 @@ new class Sketch extends p5 {
 				],
 			);
 
+			// THINGS!:
 			this.npcs.create(
 				this.createVector(0, -50),
-				// All conversations:
 				[
-
-					// First conversation:
 					[
-
-						// First dialogue:
-						"This world needs a few more things!",
-
+						"This world needs more things, THINGS!",
 					],
+				],
+			);
 
+			// SOME body needs to FIX this!:
+			this.npcs.create(
+				this.createVector(0, 50),
+				[
+					[
+						"What an empty void we live in...!",
+						"SOMEbody needs to FIX this!",
+					],
+				],
+			);
+
+			// Tree:
+			this.npcs.create(
+				this.createVector(-150, 100),
+				[
+					[
+						"This is a tree.",
+						"You watered the tree.",
+					],
+					[
+						"The tree seems safe and happy.",
+					],
 				],
 			);
 
