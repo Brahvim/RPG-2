@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta
+		name="viewport"
+		content="width=device-width, initial-scale=1.0"
+	>
+	<title>RPG</title>
+</head>
+
+<body>
+	<div
+		id="sketch0"
+		class="sketch"
+	>
+	</div>
+</body>
+
+<style>
+	html,
+	body {
+		/* NO scrollbars! */
+		margin: 0;
+		padding: 0;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+		font-family: sans-serif;
+		background-color: rgb(21, 21, 21);
+	}
+
+	.sketch {
+		width: 100%;
+		height: 100%;
+		position: relative;
+	}
+
+	.sketch canvas {
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+		/* Removes `inline` gaps: */
+		position: absolute;
+	}
+</style>
+
+<script
+	type="module"
+	src="/refactor.mjs"
+>
+</script>
+
+</html>
