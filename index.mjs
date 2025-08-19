@@ -28,19 +28,20 @@ const onPhone = (p_userAgent) => (
 
 );
 
-let s_phone = onPhone(userAgentRead());
+let phone = onPhone(userAgentRead());
 
 // #endregion
-
-/** @type { HTMLCanvasElement } */
-const s_divSketchParent = document.querySelector("div.sketch#sketch0");
 
 /**
  * @typedef { (...args: any[]) => boolean } SketchCbck
  * Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs!
  */
 
-/** @returns { number } */ const distSq2d = (x1, y1, x2, y2) => s_sketch.sq(x2 - x1) + s_sketch.sq(y2 - y1);
+/** @returns { number } */ const distSq2d = (x1, y1, x2, y2) => sketch.sq(x2 - x1) + sketch.sq(y2 - y1);
+
+/** @type { HTMLCanvasElement } */ const divSketchParent = document.querySelector("div.sketch#sketch0");
+
+/** @type { p5.Font } */ let fontSonoRegular = null;
 
 /** ...Manages `SketchCbck`s! */
 class SketchCbckManager {
@@ -89,354 +90,7 @@ class SketchCbckManager {
 
 };
 
-const s_rpg = {
-
-	/** @type { p5.Font } */
-	fontSonoRegular: undefined,
-
-	setup: () => {
-
-		s_npcs.collisionResponse = s_npcs.collisionResponseOverworld;
-
-		// `this::dpad::cbckTouchStarted` for control objects is added by `this::player::resumeAllMovementControls()`.
-		// cbcks.touchMoved.add(dpad.cbckTouchMoved); // Added by `this::dpad::cbckTouchStarted()`.
-		s_cbcks.windowResized.add(s_dpad.cbckWindowResized);
-		s_cbcks.touchEnded.add(s_dpad.cbckTouchEnded);
-
-		s_cbcks.touchStarted.add(s_player.cbckTouchStarted);
-		s_cbcks.keyPressed.add(s_player.cbckKeyPressed);
-
-		s_player.touchStart = s_sketch.createVector();
-		s_player.swipeBase = s_sketch.createVector();
-		s_player.posAngle = s_sketch.createVector();
-
-		s_dpad.base = s_sketch.createVector();
-
-		s_sketch.textFont(s_rpg.fontSonoRegular);
-		s_player.resumeAllMovementControls();
-		s_dpad.cbckWindowResized();
-
-		// Lady:
-		s_npcs.create(
-			s_sketch.createVector(150, -75),
-			// All conversations:
-			[
-
-				// First conversation:
-				[
-
-					// First dialogue:
-					"Ti's a beautiful day!",
-					"Is it not for you?",
-
-				],
-
-			],
-		);
-
-		// THINGS!:
-		s_npcs.create(
-			s_sketch.createVector(0, -50),
-			[
-				[
-					"This world needs more things, THINGS!",
-				],
-			],
-		);
-
-		// SOME body needs to FIX this!:
-		s_npcs.create(
-			s_sketch.createVector(0, 50),
-			[
-				[
-					"What an empty void we live in...!",
-					"SOMEbody needs to FIX this!",
-				],
-			],
-		);
-
-		// Tree:
-		s_npcs.create(
-			s_sketch.createVector(-150, 100),
-			[
-				[
-					"This is a tree.",
-					"You watered the tree.",
-				],
-				[
-					"The tree seems safe and happy.",
-				],
-			],
-		);
-
-		if (s_phone) {
-
-			s_dpad.draw = s_dpad.drawImpl;
-
-		}
-
-	},
-
-};
-
-const s_npcs = {
-
-	/**
-	 * @type { () => void }
-	 * @param { number } p_idNpcDetectedLast SoA index of the NPC touched last.
-	 */
-	collisionResponseOverworld: (p_idNpcDetectedLast) => {
-
-		// dialogueBox.cursor = 0;
-		// dialogueBox.buffer = "";
-		// dialogueBox.active = true;
-		s_dialogueBox.draw = s_dialogueBox.drawImpl;
-
-		s_npcs.collisionResponse = NULLFN;
-		s_player.pauseAllMovementControls();
-
-		s_cbcks.keyPressed.add(s_dialogueBox.cbckKeyPressedForConvo);
-		s_cbcks.touchStarted.add(s_dialogueBox.cbckTouchStartedForConvo);
-
-		const convos = s_npcs.conversations[p_idNpcDetectedLast]; // All of the NPC's convos.
-		const idConvo = s_npcs.idsConversation[p_idNpcDetectedLast]; // ID of convo to carry out.
-		s_dialogueBox.convo = convos[idConvo];
-
-		const idNext = idConvo + 1;
-		s_npcs.idsConversation[p_idNpcDetectedLast] = idNext == convos.length ? idConvo : idNext;
-	},
-
-	/**
-	 * @param { p5.Vector } p_posAngle
-	 * @param { string[] } p_conversations
-	 */
-	create: (p_posAngle, p_conversations) => {
-
-		s_npcs.idsDialogue.push(0);
-		s_npcs.idsConversation.push(0);
-		s_npcs.posAngles.push(p_posAngle);
-		s_npcs.conversations.push(p_conversations);
-
-	},
-
-	/** @type { () => void 	} */ collisionResponse: NULLFN,
-	/** @type { number[] 	} */ idsConversation: [],
-	/** @type { string[][] 	} */ conversations: [],
-	/** @type { number[] 	} */ idsDialogue: [],
-	/** @type { p5.Vector[] } */ posAngles: [],
-
-};
-
-const s_dpad = {
-
-	/** @type { p5.Vector } */ base: null,
-
-	/** @type { SketchCbck } */	onTouchStartedAfterWindowResized: () => {
-
-		s_phone = onPhone(userAgentRead());
-
-		if (s_phone) {
-
-			s_dpad.draw = s_dpad.drawImpl;
-
-		}
-
-		return false;
-
-	},
-
-	/** @type { SketchCbck } */	onKeyPressedAfterWindowResized: () => {
-
-		s_phone = onPhone(userAgentRead());
-
-		if (!s_phone) {
-
-			s_dpad.draw = NULLFN;
-
-		}
-
-		return false;
-
-	},
-
-	/** @type { SketchCbck } */	cbckWindowResized: () => {
-
-		s_cbcks.touchStarted.add(s_dpad.onTouchStartedAfterWindowResized);
-		s_cbcks.keyPressed.add(s_dpad.onKeyPressedAfterWindowResized);
-		s_dpad.base.y = s_sketch.height * 0.6;
-		s_dpad.base.x = s_sketch.width / 4;
-
-		return true;
-
-	},
-
-	/** @type { SketchCbck } */	cbckTouchStarted: () => {
-
-		// All three of these exist for cosmetic reasons:
-		// cbcks.touchMoved.add(dpad.cbckTouchMoved);
-		// dpad.base.x = sketch.touches[0].x;
-		// dpad.base.y = sketch.touches[0].y;
-		return true;
-
-	},
-
-	/** @type {	SketchCbck } */ cbckTouchEnded: () => {
-
-		// cbcks.touchMoved.remove(dpad.cbckTouchMoved);
-		s_dpad.pressed.w = false;
-		s_dpad.pressed.a = false;
-		s_dpad.pressed.s = false;
-		s_dpad.pressed.d = false;
-		return true;
-
-	},
-
-	/** @type { SketchCbck } */	touchControls: () => {
-
-		// The `1.35` factor allows scaling for arrow tips:
-		const scale = s_dpad.base.z * 1.35;
-		const { x, y } = s_sketch.touches[0];
-		const arrows = [
-
-			{ // W
-				x: s_dpad.base.x + s_dpad.gap,
-				y: s_dpad.base.y - (s_dpad.gap * scale),
-			},
-			{ // A
-				x: s_dpad.base.x - (s_dpad.gap * scale),
-				y: s_dpad.base.y + s_dpad.gap,
-			},
-			{ // S
-				x: s_dpad.base.x + s_dpad.gap,
-				y: s_dpad.base.y + (s_dpad.gap * scale),
-			},
-			{ // D
-				x: s_dpad.base.x + (s_dpad.gap * scale),
-				y: s_dpad.base.y + s_dpad.gap,
-			},
-
-		];
-
-		const pressed = [false, false, false, false];
-
-		for (let i = 0; i < 4; i++) {
-
-			const top = arrows[i].y - (s_dpad.base.z * 0.5); // W
-			const lef = arrows[i].x - (s_dpad.base.z * 0.5); // A
-			const bot = arrows[i].y + (s_dpad.base.z * 0.5); // S
-			const rig = arrows[i].x + (s_dpad.base.z * 0.5); // D
-
-			pressed[i] =
-				rig > x
-				&&
-				lef < x
-				&&
-				bot > y
-				&&
-				top < y
-				;
-
-		}
-
-		s_dpad.pressed.w = pressed[0];
-		s_dpad.pressed.a = pressed[1];
-		s_dpad.pressed.s = pressed[2];
-		s_dpad.pressed.d = pressed[3];
-
-		return true;
-
-	},
-
-	/** @type { p5.Vector } */ gap: 0.9,
-
-	drawImpl: () => {
-
-		s_sketch.push();
-
-		// #region Arrow rendering.
-		const arrow = () => {
-
-			s_sketch.beginShape(s_sketch.TESS);
-
-			s_sketch.vertex(-0.5, 0.35);
-			s_sketch.vertex(0.5, 0.35);
-			s_sketch.vertex(0.5, -0.35);
-			// sketch.edge(true);
-			s_sketch.vertex(0, -0.85);
-			// sketch.edge(false);
-			s_sketch.vertex(-0.5, -0.35);
-
-			s_sketch.endShape(s_sketch.CLOSE);
-
-		};
-
-		s_sketch.translate(s_dpad.base.x, s_dpad.base.y);
-		s_sketch.scale(s_dpad.base.z);
-		s_sketch.fill(127, 127);
-		s_sketch.noStroke();
-
-		s_sketch.push(); // W.
-		s_sketch.translate(0, -s_dpad.gap);
-		s_sketch.rotateZ(0);
-		arrow();
-		s_sketch.pop();
-
-		s_sketch.push(); // A.
-		s_sketch.translate(-s_dpad.gap, 0);
-		s_sketch.rotateZ(-s_sketch.HALF_PI);
-		arrow();
-		s_sketch.pop();
-
-		s_sketch.push(); // S.
-		s_sketch.translate(0, s_dpad.gap);
-		s_sketch.rotateZ(s_sketch.PI);
-		arrow();
-		s_sketch.pop();
-
-		s_sketch.push(); // D.
-		s_sketch.translate(s_dpad.gap, 0);
-		s_sketch.rotateZ(s_sketch.HALF_PI);
-		arrow();
-		s_sketch.pop();
-		// #endregion
-
-		s_sketch.pop();
-
-	},
-
-	draw: NULLFN,
-
-	pressed: {
-
-		w: false,
-		a: false,
-		s: false,
-		d: false,
-
-	},
-
-};
-
-const s_cbcks = {
-
-	touchEnded: new SketchCbckManager(),		// Touchscreens callback.
-	touchMoved: new SketchCbckManager(),		// Touchscreens callback.
-	touchStarted: new SketchCbckManager(),		// Touchscreens callback.
-	keyReleased: new SketchCbckManager(),		// Keyboard callback.
-	keyPressed: new SketchCbckManager(),		// Keyboard callback.
-	keyTyped: new SketchCbckManager(),			// Keyboard callback.
-	windowResized: new SketchCbckManager(),		// Window callback.
-	mouseMoved: new SketchCbckManager(),		// Mouse callback.
-	mouseWheel: new SketchCbckManager(),		// Mouse callback.
-	mouseClicked: new SketchCbckManager(),		// Mouse callback.
-	mouseDragged: new SketchCbckManager(),		// Mouse callback.
-	mousePressed: new SketchCbckManager(),		// Mouse callback.
-	mouseReleased: new SketchCbckManager(),		// Mouse callback.
-	doubleClicked: new SketchCbckManager(),		// Mouse callback.
-
-};
-
-const s_window = {
+const tab = {
 
 	/** @type { (orientation: string) => Promise<void> } */
 	orientationLock: (() => {
@@ -457,58 +111,315 @@ const s_window = {
 
 	cbckFullscreen: () => {
 
-		s_sketch.fullscreen(true);
+		sketch.fullscreen(true);
 		return true;
 
 	},
 
 	cbckResizeCanvas: () => {
 
-		s_sketch.resizeCanvas(window.innerWidth, window.innerHeight);
+		sketch.resizeCanvas(window.innerWidth, window.innerHeight);
 		return true;
 
 	},
 
 	pauseAttemptingResizeEveryResize: () => {
 
-		s_cbcks.windowResized.remove(s_window.cbckResizeCanvas);
+		cbcks.windowResized.remove(tab.cbckResizeCanvas);
 
 	},
 
 	resumeAttemptingResizeEveryResize: () => {
 
-		s_cbcks.windowResized.add(s_window.cbckResizeCanvas);
+		cbcks.windowResized.add(tab.cbckResizeCanvas);
 
 	},
 
 	pauseAttemptingFullscreenEveryPress: () => {
 
-		s_cbcks.touchStarted.remove(s_window.cbckFullscreen);
-		s_cbcks.mousePressed.remove(s_window.cbckFullscreen);
+		cbcks.touchStarted.remove(tab.cbckFullscreen);
+		cbcks.mousePressed.remove(tab.cbckFullscreen);
 
 	},
 
 	resumeAttemptingFullscreenEveryPress: () => {
 
-		s_cbcks.touchStarted.add(s_window.cbckFullscreen);
-		s_cbcks.mousePressed.add(s_window.cbckFullscreen);
+		cbcks.touchStarted.add(tab.cbckFullscreen);
+		cbcks.mousePressed.add(tab.cbckFullscreen);
 
 	},
 
 };
 
-const s_player = {
+const npcs = {
+
+	/**
+	 * @type { () => void }
+	 * @param { number } p_idNpcDetectedLast SoA index of the NPC touched last.
+	 */
+	collisionResponseOverworld: (p_idNpcDetectedLast) => {
+
+		// dialogueBox.cursor = 0;
+		// dialogueBox.buffer = "";
+		// dialogueBox.active = true;
+		dialogueBox.draw = dialogueBox.drawImpl;
+
+		npcs.collisionResponse = NULLFN;
+		player.pauseAllMovementControls();
+
+		cbcks.keyPressed.add(dialogueBox.cbckKeyPressedForConvo);
+		cbcks.touchStarted.add(dialogueBox.cbckTouchStartedForConvo);
+
+		const convos = npcs.conversations[p_idNpcDetectedLast]; // All of the NPC's convos.
+		const idConvo = npcs.idsConversation[p_idNpcDetectedLast]; // ID of convo to carry out.
+		dialogueBox.convo = convos[idConvo];
+
+		const idNext = idConvo + 1;
+		npcs.idsConversation[p_idNpcDetectedLast] = idNext == convos.length ? idConvo : idNext;
+	},
+
+	/**
+	 * @param { p5.Vector } p_posAngle
+	 * @param { string[] } p_conversations
+	 */
+	create: (p_posAngle, p_conversations) => {
+
+		npcs.idsDialogue.push(0);
+		npcs.idsConversation.push(0);
+		npcs.posAngles.push(p_posAngle);
+		npcs.conversations.push(p_conversations);
+
+	},
+
+	/** @type { () => void 	} */ collisionResponse: NULLFN,
+	/** @type { number[] 	} */ idsConversation: [],
+	/** @type { string[][] 	} */ conversations: [],
+	/** @type { number[] 	} */ idsDialogue: [],
+	/** @type { p5.Vector[] } */ posAngles: [],
+
+};
+
+const dpad = {
+
+	/** @type { SketchCbck } */	onTouchStartedAfterWindowResized: () => {
+
+		if (phone) {
+
+			dpad.draw = dpad.drawImpl;
+
+		}
+
+		return false;
+
+	},
+
+	/** @type { SketchCbck } */	onInputPostWindowResize: () => {
+
+		if (!phone) {
+
+			dpad.draw = NULLFN;
+
+		}
+
+		return false;
+
+	},
+
+	/** @type { SketchCbck } */	cbckWindowResized: () => {
+
+		dpad.base.x = sketch.width / 4;
+		phone = onPhone(userAgentRead());
+		dpad.base.y = sketch.height * 0.6;
+		cbcks.keyPressed.add(dpad.onInputPostWindowResize);
+		cbcks.mouseMoved.add(dpad.onInputPostWindowResize);
+		cbcks.mousePressed.add(dpad.onInputPostWindowResize);
+		cbcks.touchStarted.add(dpad.onTouchStartedAfterWindowResized);
+
+		return true;
+
+	},
+
+	/** @type { SketchCbck } */	cbckTouchStarted: () => {
+
+		// All three of these exist for cosmetic reasons:
+		// cbcks.touchMoved.add(dpad.cbckTouchMoved);
+		// dpad.base.x = sketch.touches[0].x;
+		// dpad.base.y = sketch.touches[0].y;
+		return true;
+
+	},
+
+	/** @type {	SketchCbck } */ cbckTouchEnded: () => {
+
+		// cbcks.touchMoved.remove(dpad.cbckTouchMoved);
+		dpad.pressed.w = false;
+		dpad.pressed.a = false;
+		dpad.pressed.s = false;
+		dpad.pressed.d = false;
+		return true;
+
+	},
+
+	/** @type { SketchCbck } */	touchControls: () => {
+
+		// The `1.35` factor allows scaling for arrow tips:
+		const scale = dpad.base.z * 1.35;
+		const { x, y } = sketch.touches[0];
+		const arrows = [
+
+			{ // W
+				x: dpad.base.x + dpad.gap,
+				y: dpad.base.y - (dpad.gap * scale),
+			},
+			{ // A
+				x: dpad.base.x - (dpad.gap * scale),
+				y: dpad.base.y + dpad.gap,
+			},
+			{ // S
+				x: dpad.base.x + dpad.gap,
+				y: dpad.base.y + (dpad.gap * scale),
+			},
+			{ // D
+				x: dpad.base.x + (dpad.gap * scale),
+				y: dpad.base.y + dpad.gap,
+			},
+
+		];
+
+		const pressed = [false, false, false, false];
+
+		for (let i = 0; i < 4; i++) {
+
+			const top = arrows[i].y - (dpad.base.z * 0.5); // W
+			const lef = arrows[i].x - (dpad.base.z * 0.5); // A
+			const bot = arrows[i].y + (dpad.base.z * 0.5); // S
+			const rig = arrows[i].x + (dpad.base.z * 0.5); // D
+
+			pressed[i] =
+				rig > x
+				&&
+				lef < x
+				&&
+				bot > y
+				&&
+				top < y
+				;
+
+		}
+
+		dpad.pressed.w = pressed[0];
+		dpad.pressed.a = pressed[1];
+		dpad.pressed.s = pressed[2];
+		dpad.pressed.d = pressed[3];
+
+		return true;
+
+	},
+
+	/** @type { p5.Vector } */ base: null,
+
+	/** @type { number } */ gap: 0.9,
+
+	drawImpl: () => {
+
+		sketch.push();
+
+		// #region Arrow rendering.
+
+		sketch.translate(dpad.base.x, dpad.base.y);
+		sketch.scale(dpad.base.z);
+		sketch.fill(127, 127);
+		sketch.noStroke();
+
+		sketch.push(); // W.
+		sketch.translate(0, -dpad.gap);
+		sketch.rotateZ(0);
+		dpad.arrow();
+		sketch.pop();
+
+		sketch.push(); // A.
+		sketch.translate(-dpad.gap, 0);
+		sketch.rotateZ(-sketch.HALF_PI);
+		dpad.arrow();
+		sketch.pop();
+
+		sketch.push(); // S.
+		sketch.translate(0, dpad.gap);
+		sketch.rotateZ(sketch.PI);
+		dpad.arrow();
+		sketch.pop();
+
+		sketch.push(); // D.
+		sketch.translate(dpad.gap, 0);
+		sketch.rotateZ(sketch.HALF_PI);
+		dpad.arrow();
+		sketch.pop();
+		// #endregion
+
+		sketch.pop();
+
+	},
+
+	arrow: () => {
+
+		sketch.beginShape(sketch.TESS);
+
+		sketch.vertex(-0.5, 0.35);
+		sketch.vertex(0.5, 0.35);
+		sketch.vertex(0.5, -0.35);
+		// sketch.edge(true);
+		sketch.vertex(0, -0.85);
+		// sketch.edge(false);
+		sketch.vertex(-0.5, -0.35);
+
+		sketch.endShape(sketch.CLOSE);
+
+	},
+
+	draw: NULLFN,
+
+	pressed: {
+
+		w: false,
+		a: false,
+		s: false,
+		d: false,
+
+	},
+
+};
+
+const cbcks = {
+
+	touchEnded: new SketchCbckManager(),		// Touchscreens callback.
+	touchMoved: new SketchCbckManager(),		// Touchscreens callback.
+	touchStarted: new SketchCbckManager(),		// Touchscreens callback.
+	keyReleased: new SketchCbckManager(),		// Keyboard callback.
+	keyPressed: new SketchCbckManager(),		// Keyboard callback.
+	keyTyped: new SketchCbckManager(),			// Keyboard callback.
+	windowResized: new SketchCbckManager(),		// Window callback.
+	mouseMoved: new SketchCbckManager(),		// Mouse callback.
+	mouseWheel: new SketchCbckManager(),		// Mouse callback.
+	mouseClicked: new SketchCbckManager(),		// Mouse callback.
+	mouseDragged: new SketchCbckManager(),		// Mouse callback.
+	mousePressed: new SketchCbckManager(),		// Mouse callback.
+	mouseReleased: new SketchCbckManager(),		// Mouse callback.
+	doubleClicked: new SketchCbckManager(),		// Mouse callback.
+
+};
+
+const player = {
 
 	// #region Controls stuff.
 	// #region Pause/Resume controls.
 	resumeAllMovementControls: () => {
 
-		s_player.movementControls = s_player.movementControlsImpl;
+		player.movementControls = player.movementControlsImpl;
 
-		if (s_phone) {
+		if (phone) {
 
-			s_dpad.draw = s_dpad.drawImpl;
-			s_cbcks.touchStarted.add(s_dpad.cbckTouchStarted);
+			dpad.draw = dpad.drawImpl;
+			cbcks.touchStarted.add(dpad.cbckTouchStarted);
 
 		}
 
@@ -516,13 +427,14 @@ const s_player = {
 
 	pauseAllMovementControls: () => {
 
-		if (s_phone) {
+		if (phone) {
 
-			s_cbcks.touchStarted.remove(s_dpad.cbckTouchStarted);
+			dpad.draw = NULLFN;
+			cbcks.touchStarted.remove(dpad.cbckTouchStarted);
 
 		}
 
-		s_player.movementControls = NULLFN;
+		player.movementControls = NULLFN;
 
 	},
 		// #endregion
@@ -530,7 +442,7 @@ const s_player = {
 		// #region Control callbacks.
 	/** @type { SketchCbck } */ cbckTouchStarted: () => {
 
-		s_player.movementControls();
+		player.movementControls();
 
 		return true;
 
@@ -538,7 +450,7 @@ const s_player = {
 
 	/** @type { SketchCbck } */ cbckKeyPressed: () => {
 
-		s_player.movementControls();
+		player.movementControls();
 
 		return true;
 
@@ -549,32 +461,32 @@ const s_player = {
 		// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
 		// than via some callback that adds functions into a `Set` / an array to respond to movements.
 
-		if (s_sketch.touches.length > 0) { // Have to poll this one because p5 orders events like an EDT would!
+		if (sketch.touches.length > 0) { // Have to poll this one because p5 orders events like an EDT would!
 
-			s_dpad.touchControls();
-
-		}
-
-		const dt = s_sketch.deltaTime * 0.1; // Actually perfy, 'cause it also saves an access.
-
-		if (s_sketch.keyIsDown(87) || s_dpad.pressed.w) {
-
-			s_player.posAngle.y -= s_player.speed * dt;
+			dpad.touchControls();
 
 		}
-		if (s_sketch.keyIsDown(65) || s_dpad.pressed.a) {
 
-			s_player.posAngle.x -= s_player.speed * dt;
+		const dt = sketch.deltaTime * 0.1; // Actually perfy, 'cause it also saves an access.
 
-		}
-		if (s_sketch.keyIsDown(83) || s_dpad.pressed.s) {
+		if (sketch.keyIsDown(87) || dpad.pressed.w) {
 
-			s_player.posAngle.y += s_player.speed * dt;
+			player.posAngle.y -= player.speed * dt;
 
 		}
-		if (s_sketch.keyIsDown(68) || s_dpad.pressed.d) {
+		if (sketch.keyIsDown(65) || dpad.pressed.a) {
 
-			s_player.posAngle.x += s_player.speed * dt;
+			player.posAngle.x -= player.speed * dt;
+
+		}
+		if (sketch.keyIsDown(83) || dpad.pressed.s) {
+
+			player.posAngle.y += player.speed * dt;
+
+		}
+		if (sketch.keyIsDown(68) || dpad.pressed.d) {
+
+			player.posAngle.x += player.speed * dt;
 
 		}
 
@@ -604,49 +516,49 @@ const s_player = {
 
 };
 
-const s_dialogueBox = {
+const dialogueBox = {
 
-	convoIsLast: () => s_dialogueBox.idDialogue >= s_dialogueBox.convo.length - 1,
+	convoIsLast: () => dialogueBox.idDialogue >= dialogueBox.convo.length - 1,
 
 	/** @type { SketchCbck } */ cbckTouchStartedForConvo: () => {
 
-		return s_dialogueBox.convoShouldExit();
+		return dialogueBox.convoShouldExit();
 
 	},
 
 	/** @type { SketchCbck } */ cbckKeyPressedForConvo: () => {
 
-		if (s_sketch.keyCode != 69) {
+		if (sketch.keyCode != 69) {
 
 			return true;
 
 		}
 
-		return s_dialogueBox.convoShouldExit();
+		return dialogueBox.convoShouldExit();
 
 	},
 
 	convoShouldExit: () => {
 
-		if (!s_dialogueBox.convoIsLast()) {
+		if (!dialogueBox.convoIsLast()) {
 
-			s_dialogueBox.cursor = 0;
-			s_dialogueBox.idDialogue++;
-			s_dialogueBox.buffer = "";
+			dialogueBox.cursor = 0;
+			dialogueBox.idDialogue++;
+			dialogueBox.buffer = "";
 
 			return true;
 
 		}
 
-		s_cbcks.touchEnded.remove(s_dialogueBox.cbckTouchStartedForConvo);
-		s_cbcks.keyPressed.remove(s_dialogueBox.cbckKeyPressedForConvo);
-		s_player.resumeAllMovementControls();
-		s_npcs.collisionResponse = NULLFN;
-		s_dialogueBox.draw = NULLFN;
-		s_dialogueBox.active = false;
-		s_dialogueBox.idDialogue = 0;
-		s_dialogueBox.cursor = 0;
-		s_dialogueBox.buffer = "";
+		cbcks.touchEnded.remove(dialogueBox.cbckTouchStartedForConvo);
+		cbcks.keyPressed.remove(dialogueBox.cbckKeyPressedForConvo);
+		player.resumeAllMovementControls();
+		npcs.collisionResponse = NULLFN;
+		dialogueBox.draw = NULLFN;
+		dialogueBox.active = false;
+		dialogueBox.idDialogue = 0;
+		dialogueBox.cursor = 0;
+		dialogueBox.buffer = "";
 
 		return false;
 
@@ -654,56 +566,54 @@ const s_dialogueBox = {
 
 	drawImpl: () => {
 
-		console.log('a');
+		sketch.push();
 
-		s_sketch.push();
-
-		s_sketch.translate(s_sketch.width / 2, s_sketch.height * 0.8);
-		const rh = s_sketch.height * s_sketch.displayDensity() * 0.12;
-		const fade = 255 * s_dialogueBox.fade;
-		const rw = s_sketch.width * 0.5;
+		sketch.translate(sketch.width / 2, sketch.height * 0.8);
+		const rh = sketch.height * sketch.displayDensity() * 0.12;
+		const fade = 255 * dialogueBox.fade;
+		const rw = sketch.width * 0.5;
 		const rr = 20; // Just 4% of width!
-		s_sketch.scale(1.5);
+		sketch.scale(1.5);
 
 		// #region Rectangle.
-		s_sketch.push();
+		sketch.push();
 
-		s_sketch.rectMode(s_sketch.CENTER);
-		s_sketch.fill(127, fade);
-		s_sketch.curveDetail(6);
-		s_sketch.noStroke();
+		sketch.rectMode(sketch.CENTER);
+		sketch.fill(127, fade);
+		sketch.curveDetail(6);
+		sketch.noStroke();
 
-		s_sketch.rect(0, 0, rw, rh, rr, rr, rr, rr);
+		sketch.rect(0, 0, rw, rh, rr, rr, rr, rr);
 
-		s_sketch.pop();
+		sketch.pop();
 		// #endregion
 
 		// #region Text.
-		const dialogue = s_dialogueBox.convo[s_dialogueBox.idDialogue];
-		const cursor = s_dialogueBox.cursor;
-		s_dialogueBox.cursor++;
+		const dialogue = dialogueBox.convo[dialogueBox.idDialogue];
+		const cursor = dialogueBox.cursor;
+		dialogueBox.cursor++;
 
 		if (cursor < dialogue.length) {
 
-			s_dialogueBox.buffer += dialogue.charAt(cursor);
+			dialogueBox.buffer += dialogue.charAt(cursor);
 
 		}
 
-		const text = s_dialogueBox.buffer;
+		const text = dialogueBox.buffer;
 		const tw = -rw / 2.25;
 		const th = -rh / 8;
 
-		s_sketch.push();
+		sketch.push();
 
-		s_sketch.textSize(rw * 0.04);
-		s_sketch.fill(255, fade);
-		s_sketch.noStroke();
-		s_sketch.text(text, tw, th);
+		sketch.textSize(rw * 0.04);
+		sketch.fill(255, fade);
+		sketch.noStroke();
+		sketch.text(text, tw, th);
 
-		s_sketch.pop();
+		sketch.pop();
 		// #endregion
 
-		s_sketch.pop();
+		sketch.pop();
 
 	},
 
@@ -725,180 +635,266 @@ const s_dialogueBox = {
 
 };
 
-const s_sketch = new class /*Sketch*/ extends p5 {
+// #region Sketch functions.
+
+const preload = () => {
+	sketch.loadFont("/Sono-Regular.ttf", f => fontSonoRegular = f);
+};
+
+const setup = () => {
+	// #region Init.
+	sketch.renderer = sketch.createCanvas(window.innerWidth, window.innerHeight, sketch.WEBGL);
+	sketch.elementCanvas = sketch.elementCanvasParent.querySelector("canvas");
+	sketch.gl = sketch.renderer.GL;
+
+	tab.resumeAttemptingFullscreenEveryPress();
+	tab.orientationLock("landscape-primary");
+	tab.resumeAttemptingResizeEveryResize();
+
+	sketch.textFont(fontSonoRegular);
+	sketch.frameRate(72);
+	// #endregion
+
+	npcs.collisionResponse = npcs.collisionResponseOverworld;
+
+	// `sketch::dpad::cbckTouchStarted` for control objects is added by `sketch::player::resumeAllMovementControls()`.
+	// cbcks.touchMoved.add(dpad.cbckTouchMoved); // Added by `sketch::dpad::cbckTouchStarted()`.
+	cbcks.windowResized.add(dpad.cbckWindowResized);
+	cbcks.touchEnded.add(dpad.cbckTouchEnded);
+
+	cbcks.touchStarted.add(player.cbckTouchStarted);
+	cbcks.keyPressed.add(player.cbckKeyPressed);
+
+	dpad.base = sketch.createVector(0, 0, 35);
+	player.touchStart = sketch.createVector();
+	player.swipeBase = sketch.createVector();
+	player.posAngle = sketch.createVector();
+
+	sketch.textFont(fontSonoRegular);
+	player.resumeAllMovementControls();
+	dpad.cbckWindowResized();
+
+	// Lady:
+	npcs.create(
+		sketch.createVector(150, -75),
+		// All conversations:
+		[
+
+			// First conversation:
+			[
+
+				// First dialogue:
+				"Ti's a beautiful day!",
+				"Is it not for you?",
+
+			],
+
+		],
+	);
+
+	// THINGS!:
+	npcs.create(
+		sketch.createVector(0, -50),
+		[
+			[
+				"This world needs more things, THINGS!",
+			],
+		],
+	);
+
+	// SOME body needs to FIX this!:
+	npcs.create(
+		sketch.createVector(0, 50),
+		[
+			[
+				"What an empty void we live in...!",
+				"SOMEbody needs to FIX this!",
+			],
+		],
+	);
+
+	// Tree:
+	npcs.create(
+		sketch.createVector(-150, 100),
+		[
+			[
+				"This is a tree.",
+				"You watered the tree.",
+			],
+			[
+				"The tree seems safe and happy.",
+			],
+		],
+	);
+
+	if (phone) {
+
+		dpad.draw = dpad.drawImpl;
+
+	}
+
+};
+
+const draw = () => {
+	sketch.ptouches = sketch.touches;
+	player.movementControls();
+
+	// No longer works!
+	// sketch.push();
+	//
+	// sketch.translate(sketch.width * -0.5, sketch.height * -0.5);
+	// sketch.noStroke();
+	// sketch.noSmooth();
+	// sketch.fill(0, 12);
+	// sketch.rect(0, 0, sketch.width, sketch.height);
+	//
+	// sketch.pop();
+	sketch.background(0);
+
+	sketch.push();
+	// #region Camera!
+
+	// Heck, my values work exactly LIKE the defaults!
+	sketch.perspective(
+		70,
+		sketch.width / sketch.height,
+		0.01,
+		10_000
+	); // (Okay, their FOV IS different and I can't find it for some reason.)
+
+	sketch.camera(
+		player.posAngle.x, player.posAngle.y, sketch.width / 4,
+		player.posAngle.x, player.posAngle.y, 0,
+		0, 1, 0
+	);
+
+	// #region Player render.
+	sketch.push();
+	sketch.rotateZ(player.posAngle.z);
+	sketch.noStroke();
+	sketch.fill(255);
+	// console.log(`${player.posAngle.x}, ${player.posAngle.y}`);
+
+	sketch.square(
+		player.posAngle.x,
+		player.posAngle.y,
+		player.size,
+	);
+	sketch.pop();
+	// #endregion
+
+	// #region Check collisions.
+	player.idsNpcsTouched.clear();
+	let idNpcDetectedLast = 0;
+
+	for (let i = 0; i < npcs.posAngles.length; i++) {
+
+		const p = npcs.posAngles[i];
+
+		const nLeft = p.x - (20 * 0.5);
+		const nRight = p.x + (20 * 0.5);
+		const nAbove = p.y - (20 * 0.5);
+		const nBelow = p.y + (20 * 0.5);
+
+		const pLeft = player.posAngle.x - (player.size * 0.5);
+		const pRight = player.posAngle.x + (player.size * 0.5);
+		const pAbove = player.posAngle.y - (player.size * 0.5);
+		const pBelow = player.posAngle.y + (player.size * 0.5);
+
+		const overlapping = !(
+			pRight < nLeft
+			||
+			pLeft > nRight
+			||
+			pBelow < nAbove
+			||
+			pAbove > nBelow
+		);
+
+		if (overlapping) {
+
+			player.idsNpcsTouched.add(i);
+			idNpcDetectedLast = i;
+
+		}
+
+	}
+
+	if (player.idsNpcsTouched.size != 0) {
+
+		npcs.collisionResponse(idNpcDetectedLast);
+
+	}
+	else {
+
+		npcs.collisionResponse = npcs.collisionResponseOverworld;
+
+	}
+	// #endregion
+
+	// #region NPC rendering.
+	sketch.push();
+	sketch.fill(255);
+	sketch.noStroke();
+
+	for (const p of npcs.posAngles) {
+
+		sketch.push();
+
+		sketch.rotateZ(p.z);
+		sketch.square(p.x, p.y, 20);
+
+		sketch.pop();
+
+	}
+
+	sketch.pop();
+	// #endregion
+
+	// #endregion
+	sketch.pop();
+
+	// #region 2D rendering.
+	sketch.resetMatrix();
+	sketch.ortho(
+		0, sketch.width,
+		-sketch.height, 0,
+		-1000, 1000,
+	);
+
+	dialogueBox.draw();
+	dpad.draw();
+	// #endregion
+};
+
+// #endregion
+
+const sketch = new class /*Sketch*/ extends p5 {
 
 	// #region Fields.
 
-	/** @type { p5.Renderer } */ renderer = undefined;
-	/** @type { HTMLElement } */ elementCanvasParent = undefined;
-	/** @type { HTMLCanvasElement } */ elementCanvas = undefined;
-	/** @type { { x: number, y: number, id: number, }[] } */ ptouches = [];
-	/** @type { WebGL2RenderingContext | WebGLRenderingContext } */ gl = undefined;
+	/** @type { HTMLElement } 										*/ elementCanvasParent = undefined;
+	/** @type { HTMLCanvasElement } 								*/ elementCanvas = undefined;
+	/** @type { p5.Renderer } 										*/ renderer = undefined;
+	/** @type { WebGL2RenderingContext | WebGLRenderingContext } 	*/ gl = undefined;
+	/** @type { { x: number, y: number, id: number, }[] } 			*/ ptouches = [];
 
 	// #endregion
 
-	draw() {
-		this.ptouches = this.touches;
-		s_player.movementControls();
-
-		// No longer works!
-		// this.push();
-		//
-		// this.translate(this.width * -0.5, this.height * -0.5);
-		// this.noStroke();
-		// this.noSmooth();
-		// this.fill(0, 12);
-		// this.rect(0, 0, this.width, this.height);
-		//
-		// this.pop();
-		this.background(0);
-
-		this.push();
-		// #region Camera!
-
-		// Heck, my values work exactly LIKE the defaults!
-		this.perspective(
-			70,
-			this.width / this.height,
-			0.01,
-			10_000
-		); // (Okay, their FOV IS different and I can't find it for some reason.)
-
-		this.camera(
-			s_player.posAngle.x, s_player.posAngle.y, this.width / 4,
-			s_player.posAngle.x, s_player.posAngle.y, 0,
-			0, 1, 0
-		);
-
-		// #region Player render.
-		this.push();
-		this.rotateZ(s_player.posAngle.z);
-		this.noStroke();
-		this.fill(255);
-		// console.log(`${player.posAngle.x}, ${player.posAngle.y}`);
-
-		this.square(
-			s_player.posAngle.x,
-			s_player.posAngle.y,
-			s_player.size,
-		);
-		this.pop();
-		// #endregion
-
-		// #region Check collisions.
-		s_player.idsNpcsTouched.clear();
-		let idNpcDetectedLast = 0;
-
-		for (let i = 0; i < s_npcs.posAngles.length; i++) {
-
-			const p = s_npcs.posAngles[i];
-
-			const nLeft = p.x - (20 * 0.5);
-			const nRight = p.x + (20 * 0.5);
-			const nAbove = p.y - (20 * 0.5);
-			const nBelow = p.y + (20 * 0.5);
-
-			const pLeft = s_player.posAngle.x - (s_player.size * 0.5);
-			const pRight = s_player.posAngle.x + (s_player.size * 0.5);
-			const pAbove = s_player.posAngle.y - (s_player.size * 0.5);
-			const pBelow = s_player.posAngle.y + (s_player.size * 0.5);
-
-			const overlapping = !(
-				pRight < nLeft
-				||
-				pLeft > nRight
-				||
-				pBelow < nAbove
-				||
-				pAbove > nBelow
-			);
-
-			if (overlapping) {
-
-				s_player.idsNpcsTouched.add(i);
-				idNpcDetectedLast = i;
-
-			}
-
-		}
-
-		if (s_player.idsNpcsTouched.size != 0) {
-
-			s_npcs.collisionResponse(idNpcDetectedLast);
-
-		}
-		else {
-
-			s_npcs.collisionResponse = s_npcs.collisionResponseOverworld;
-
-		}
-		// #endregion
-
-		// #region NPC rendering.
-		this.push();
-		this.fill(255);
-		this.noStroke();
-
-		for (const p of s_npcs.posAngles) {
-
-			this.push();
-
-			this.rotateZ(p.z);
-			this.square(p.x, p.y, 20);
-
-			this.pop();
-
-		}
-
-		this.pop();
-		// #endregion
-
-		// #endregion
-		this.pop();
-
-		// #region 2D rendering.
-		this.resetMatrix();
-		this.ortho(
-			0, this.width,
-			-this.height, 0,
-			-1000, 1000,
-		);
-
-		s_dialogueBox.draw();
-		s_dpad.draw();
-		// #endregion
-	}
-
-	setup() {
-		this.renderer = this.createCanvas(window.innerWidth, window.innerHeight, this.WEBGL);
-		this.elementCanvas = this.elementCanvasParent.querySelector("canvas");
-		s_window.resumeAttemptingFullscreenEveryPress();
-		s_window.orientationLock("landscape-primary");
-		s_window.resumeAttemptingResizeEveryResize();
-		this.gl = this.renderer.GL;
-		this.textFont(s_rpg.fontSonoRegular);
-		this.frameRate(72);
-		s_rpg.setup();
-	}
-
-	preload() {
-		this.loadFont("/Sono-Regular.ttf", (p_font) => {
-
-			s_rpg.fontSonoRegular = p_font;
-
-		});
-	}
-
 	constructor() {
-		super(p => p, s_divSketchParent);
+		super(p => p, divSketchParent);
 
-		for (const [cbck, man] of Object.entries(s_cbcks)) {
+		for (const [cbck, man] of Object.entries(cbcks)) {
 
 			this[cbck] = man.handleEvent.bind(man);
 
 		}
 
-		this.elementCanvasParent = s_divSketchParent;
+		this.elementCanvasParent = divSketchParent;
 	}
+
+	draw = draw;
+	setup = setup;
+	preload = preload;
 
 };
