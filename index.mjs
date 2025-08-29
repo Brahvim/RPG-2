@@ -33,62 +33,29 @@ let phone = onPhone(userAgentRead());
 // #endregion
 
 /**
- * @typedef { (...args: any[]) => boolean } SketchCbck
+ * @typedef { (...args: any[]) => boolean } Callback
  * Called when an event occurs. Can return `true` if it wishes to be called next time said event occurs!
  */
 
-/** @returns { number } */ const distSq2d = (x1, y1, x2, y2) => sketch.sq(x2 - x1) + sketch.sq(y2 - y1);
+/**
+ * @typedef { {
+ * 	impl: (...args: any[]) => boolean,
+ * 	call: (...args: any[]) => boolean | NULLFN,
+ * } } CallbackBox
+ * A "box object" containing a function `impl` and a duplicate, `call`, that can be swapped out with `NULLFN` to essentially "toggle" `impl`.
+ * This *is similar* to an `Optional<T>` type, but the point is to allow callers to execute `impl` without a branch.
+ * This is done via the assignment, `call = impl`, to "toggle" `call` to run `impl` or `NULLFN`.
+ */
 
-/** @type { HTMLCanvasElement } */ const divSketchParent = document.querySelector("div.sketch#sketch0");
+// /** @type { (x1: number, y1: number, x2: number, y2: number) => number } */
+// const distSq2d = (x1, y1, x2, y2) => (x2 - x1) ** 2 + (y2 - y1) ** 2;
 
-/** @type { p5.Font } */ let fontSonoRegular = null;
-
-/** ...Manages `SketchCbck`s! */
-class SketchCbckManager {
-
-	/** @type { Set<SketchCbck> } */ pactive = new Set();
-
-	/** @type { SketchCbck[] } */ active = [];
-
-	add(...p_callbacks) {
-		for (const cbck of p_callbacks) {
-
-			this.active.push(cbck);
-
-		}
-	}
-
-	remove(...p_callbacks) {
-		for (const cbck of p_callbacks) {
-
-			const id = this.active.indexOf(cbck);
-
-			if (id != -1) {
-
-				this.active.splice(id, 1);
-
-			}
-
-		}
-	}
-
-	handleEvent(...p_eventArgs) {
-		this.pactive.clear();
-
-		for (const cbck of this.active) {
-
-			if (!cbck(p_eventArgs)) {
-
-				this.pactive.add(cbck);
-
-			}
-
-		}
-
-		this.active = this.active.filter(cbck => !this.pactive.has(cbck));
-	}
-
-};
+/** @type { (a: CallbackBox[]) => void } 	*/ const boxRun = a => a.forEach(c => c.call = c.call() ? c.impl : NULLFN);
+/** @type { HTMLCanvasElement }				*/ const divSketchParent = document.querySelector("div.sketch#sketch0");
+/** @type { (f: Callback) => CallbackBox }	*/ const box = f => ({ call: f, impl: f });
+/** @type { (b: CallbackBox) => void } 		*/ const boxStart = b => b.call = b.impl;
+/** @type { (b: CallbackBox) => void } 		*/ const boxStop = b => b.call = NULLFN;
+/** @type { p5.Font } 						*/ let fontSonoRegular = null;
 
 const tab = {
 
@@ -109,43 +76,47 @@ const tab = {
 
 	})(),
 
-	cbckFullscreen: () => {
+	/** @type { CallbackBox } */ cbckFullscreen: box(() => {
 
 		sketch.fullscreen(true);
 		return true;
 
-	},
+	}),
 
-	cbckResizeCanvas: () => {
+	/** @type { CallbackBox } */ cbckResizeCanvas: box(() => {
 
 		sketch.resizeCanvas(window.innerWidth, window.innerHeight);
 		return true;
 
-	},
+	}),
 
 	pauseAttemptingResizeEveryResize: () => {
 
-		cbcks.windowResized.remove(tab.cbckResizeCanvas);
+		boxStop(tab.cbckResizeCanvas);
 
 	},
 
 	resumeAttemptingResizeEveryResize: () => {
 
-		cbcks.windowResized.add(tab.cbckResizeCanvas);
+		boxStart(tab.cbckResizeCanvas);
 
 	},
 
 	pauseAttemptingFullscreenEveryPress: () => {
 
-		cbcks.touchStarted.remove(tab.cbckFullscreen);
-		cbcks.mousePressed.remove(tab.cbckFullscreen);
+		// touchStarted
+		tab.cbckFullscreen.call = NULLFN;
+		// tab.cbckFullscreen.impl;
+		// mousePressed
+		tab.cbckFullscreen.call = NULLFN;
+		// tab.cbckFullscreen.impl;
 
 	},
 
 	resumeAttemptingFullscreenEveryPress: () => {
 
-		cbcks.touchStarted.add(tab.cbckFullscreen);
-		cbcks.mousePressed.add(tab.cbckFullscreen);
+		boxStart(tab.cbckFullscreen);
+		boxStart(tab.cbckFullscreen);
 
 	},
 
@@ -167,8 +138,8 @@ const npcs = {
 		npcs.collisionResponse = NULLFN;
 		player.pauseAllMovementControls();
 
-		cbcks.keyPressed.add(dialogueBox.cbckKeyPressedForConvo);
-		cbcks.touchStarted.add(dialogueBox.cbckTouchStartedForConvo);
+		boxStart(dialogueBox.cbckKeyPressedForConvo);
+		boxStart(dialogueBox.cbckTouchStartedForConvo);
 
 		const convos = npcs.conversations[p_idNpcDetectedLast]; // All of the NPC's convos.
 		const idConvo = npcs.idsConversation[p_idNpcDetectedLast]; // ID of convo to carry out.
@@ -201,66 +172,66 @@ const npcs = {
 
 const dpad = {
 
-	/** @type { SketchCbck } */	onTouchStartedAfterWindowResized: () => {
+	/** @type { CallbackBox } */	onTouchStartedAfterWindowResized: box(() => {
 
-		if (phone) {
+	if (phone) {
 
-			dpad.draw = dpad.drawImpl;
+		dpad.draw = dpad.drawImpl;
 
-		}
+	}
 
-		return false;
+	return false;
 
-	},
+}),
 
-	/** @type { SketchCbck } */	onInputPostWindowResize: () => {
+	/** @type { CallbackBox } */	onInputPostWindowResize: box(() => {
 
-		if (!phone) {
+	if (!phone) {
 
-			dpad.draw = NULLFN;
+		dpad.draw = NULLFN;
 
-		}
+	}
 
-		return false;
+	return false;
 
-	},
+}),
 
-	/** @type { SketchCbck } */	cbckWindowResized: () => {
+	/** @type { CallbackBox } */	cbckWindowResized: box(() => {
 
-		dpad.base.x = sketch.width / 4;
-		phone = onPhone(userAgentRead());
-		dpad.base.y = sketch.height * 0.6;
-		cbcks.keyPressed.add(dpad.onInputPostWindowResize);
-		cbcks.mouseMoved.add(dpad.onInputPostWindowResize);
-		cbcks.mousePressed.add(dpad.onInputPostWindowResize);
-		cbcks.touchStarted.add(dpad.onTouchStartedAfterWindowResized);
+	dpad.base.x = sketch.width / 4;
+	phone = onPhone(userAgentRead());
+	dpad.base.y = sketch.height * 0.6;
+	boxStart(dpad.onInputPostWindowResize);
+	boxStart(dpad.onInputPostWindowResize);
+	boxStart(dpad.onInputPostWindowResize);
+	boxStart(dpad.onTouchStartedAfterWindowResized);
 
-		return true;
+	return true;
 
-	},
+}),
 
-	/** @type { SketchCbck } */	cbckTouchStarted: () => {
+	/** @type { CallbackBox } */	cbckTouchStarted: box(() => {
 
-		// All three of these exist for cosmetic reasons:
-		// cbcks.touchMoved.add(dpad.cbckTouchMoved);
-		// dpad.base.x = sketch.touches[0].x;
-		// dpad.base.y = sketch.touches[0].y;
-		return true;
+	// All three of these exist for cosmetic reasons:
+	// boxStart(dpad.cbckTouchMoved);
+	// dpad.base.x = sketch.touches[0].x;
+	// dpad.base.y = sketch.touches[0].y;
+	return true;
 
-	},
+}),
 
-	/** @type {	SketchCbck } */ cbckTouchEnded: () => {
+	/** @type {	CallbackBox } */ cbckTouchEnded: box(() => {
 
-		// cbcks.touchMoved.remove(dpad.cbckTouchMoved);
-		dpad.pressed.w = false;
-		dpad.pressed.a = false;
-		dpad.pressed.s = false;
-		dpad.pressed.d = false;
-		return true;
+	// boxStop(dpad.cbckTouchMoved);
+	dpad.pressed.w = false;
+	dpad.pressed.a = false;
+	dpad.pressed.s = false;
+	dpad.pressed.d = false;
+	return true;
 
-	},
+}),
 
-	/** @type { SketchCbck } */	touchControls: () => {
+	/** @type { CallbackBox } */	touchControls: () => {
 
 		// The `1.35` factor allows scaling for arrow tips:
 		const scale = dpad.base.z * 1.35;
@@ -320,7 +291,7 @@ const dpad = {
 
 	/** @type { number } */ gap: 0.9,
 
-	drawImpl: () => {
+	drawImpl: box(() => {
 
 		sketch.push();
 
@@ -358,7 +329,7 @@ const dpad = {
 
 		sketch.pop();
 
-	},
+	}),
 
 	arrow: () => {
 
@@ -389,25 +360,6 @@ const dpad = {
 
 };
 
-const cbcks = {
-
-	touchEnded: new SketchCbckManager(),		// Touchscreens callback.
-	touchMoved: new SketchCbckManager(),		// Touchscreens callback.
-	touchStarted: new SketchCbckManager(),		// Touchscreens callback.
-	keyReleased: new SketchCbckManager(),		// Keyboard callback.
-	keyPressed: new SketchCbckManager(),		// Keyboard callback.
-	keyTyped: new SketchCbckManager(),			// Keyboard callback.
-	windowResized: new SketchCbckManager(),		// Window callback.
-	mouseMoved: new SketchCbckManager(),		// Mouse callback.
-	mouseWheel: new SketchCbckManager(),		// Mouse callback.
-	mouseClicked: new SketchCbckManager(),		// Mouse callback.
-	mouseDragged: new SketchCbckManager(),		// Mouse callback.
-	mousePressed: new SketchCbckManager(),		// Mouse callback.
-	mouseReleased: new SketchCbckManager(),		// Mouse callback.
-	doubleClicked: new SketchCbckManager(),		// Mouse callback.
-
-};
-
 const player = {
 
 	// #region Controls stuff.
@@ -419,7 +371,7 @@ const player = {
 		if (phone) {
 
 			dpad.draw = dpad.drawImpl;
-			cbcks.touchStarted.add(dpad.cbckTouchStarted);
+			boxStart(dpad.cbckTouchStarted);
 
 		}
 
@@ -430,7 +382,7 @@ const player = {
 		if (phone) {
 
 			dpad.draw = NULLFN;
-			cbcks.touchStarted.remove(dpad.cbckTouchStarted);
+			boxStop(dpad.cbckTouchStarted);
 
 		}
 
@@ -439,24 +391,24 @@ const player = {
 	},
 		// #endregion
 
-		// #region Control callbacks.
-	/** @type { SketchCbck } */ cbckTouchStarted: () => {
+	// #region Control callbacks.
+	/** @type { CallbackBox } */ cbckTouchStarted: box(() => {
 
-		player.movementControls();
-
-		return true;
-
-	},
-
-	/** @type { SketchCbck } */ cbckKeyPressed: () => {
-
-		player.movementControls();
+		player.movementControls.call();
 
 		return true;
 
-	},
+	}),
 
-	movementControlsImpl: () => {
+	/** @type { CallbackBox } */ cbckKeyPressed: box(() => {
+
+		player.movementControls.call();
+
+		return true;
+
+	}),
+
+	movementControlsImpl: box(() => {
 
 		// It is predictable - if not, as I think, *"faster"* - and also much cheaper, to respond to movements here,
 		// than via some callback that adds functions into a `Set` / an array to respond to movements.
@@ -490,7 +442,7 @@ const player = {
 
 		}
 
-	},
+	}),
 
 	movementControls: NULLFN, // Called in `Sketch::draw()`!
 	// #endregion
@@ -520,13 +472,13 @@ const dialogueBox = {
 
 	convoIsLast: () => dialogueBox.idDialogue >= dialogueBox.convo.length - 1,
 
-	/** @type { SketchCbck } */ cbckTouchStartedForConvo: () => {
+	/** @type { CallbackBox } */ cbckTouchStartedForConvo: box(() => {
 
 		return dialogueBox.convoShouldExit();
 
-	},
+	}),
 
-	/** @type { SketchCbck } */ cbckKeyPressedForConvo: () => {
+	/** @type { CallbackBox } */ cbckKeyPressedForConvo: box(() => {
 
 		if (sketch.keyCode != 69) {
 
@@ -536,7 +488,7 @@ const dialogueBox = {
 
 		return dialogueBox.convoShouldExit();
 
-	},
+	}),
 
 	convoShouldExit: () => {
 
@@ -550,15 +502,15 @@ const dialogueBox = {
 
 		}
 
-		cbcks.touchEnded.remove(dialogueBox.cbckTouchStartedForConvo);
-		cbcks.keyPressed.remove(dialogueBox.cbckKeyPressedForConvo);
+		boxStop(dialogueBox.cbckTouchStartedForConvo);
+		boxStop(dialogueBox.cbckKeyPressedForConvo);
 		player.resumeAllMovementControls();
 		npcs.collisionResponse = NULLFN;
-		dialogueBox.draw = NULLFN;
-		dialogueBox.active = false;
 		dialogueBox.idDialogue = 0;
-		dialogueBox.cursor = 0;
+		dialogueBox.active = false;
+		dialogueBox.draw = NULLFN;
 		dialogueBox.buffer = "";
+		dialogueBox.cursor = 0;
 
 		return false;
 
@@ -635,240 +587,6 @@ const dialogueBox = {
 
 };
 
-// #region Sketch functions.
-
-const preload = () => {
-	sketch.loadFont("/Sono-Regular.ttf", f => fontSonoRegular = f);
-};
-
-const setup = () => {
-	// #region Init.
-	sketch.renderer = sketch.createCanvas(window.innerWidth, window.innerHeight, sketch.WEBGL);
-	sketch.elementCanvas = sketch.elementCanvasParent.querySelector("canvas");
-	sketch.gl = sketch.renderer.GL;
-
-	tab.resumeAttemptingFullscreenEveryPress();
-	tab.orientationLock("landscape-primary");
-	tab.resumeAttemptingResizeEveryResize();
-
-	sketch.textFont(fontSonoRegular);
-	sketch.frameRate(72);
-	// #endregion
-
-	npcs.collisionResponse = npcs.collisionResponseOverworld;
-
-	// `sketch::dpad::cbckTouchStarted` for control objects is added by `sketch::player::resumeAllMovementControls()`.
-	// cbcks.touchMoved.add(dpad.cbckTouchMoved); // Added by `sketch::dpad::cbckTouchStarted()`.
-	cbcks.windowResized.add(dpad.cbckWindowResized);
-	cbcks.touchEnded.add(dpad.cbckTouchEnded);
-
-	cbcks.touchStarted.add(player.cbckTouchStarted);
-	cbcks.keyPressed.add(player.cbckKeyPressed);
-
-	dpad.base = sketch.createVector(0, 0, 35);
-	player.touchStart = sketch.createVector();
-	player.swipeBase = sketch.createVector();
-	player.posAngle = sketch.createVector();
-
-	sketch.textFont(fontSonoRegular);
-	player.resumeAllMovementControls();
-	dpad.cbckWindowResized();
-
-	// Lady:
-	npcs.create(
-		sketch.createVector(150, -75),
-		// All conversations:
-		[
-
-			// First conversation:
-			[
-
-				// First dialogue:
-				"Ti's a beautiful day!",
-				"Is it not for you?",
-
-			],
-
-		],
-	);
-
-	// THINGS!:
-	npcs.create(
-		sketch.createVector(0, -50),
-		[
-			[
-				"This world needs more things, THINGS!",
-			],
-		],
-	);
-
-	// SOME body needs to FIX this!:
-	npcs.create(
-		sketch.createVector(0, 50),
-		[
-			[
-				"What an empty void we live in...!",
-				"SOMEbody needs to FIX this!",
-			],
-		],
-	);
-
-	// Tree:
-	npcs.create(
-		sketch.createVector(-150, 100),
-		[
-			[
-				"This is a tree.",
-				"You watered the tree.",
-			],
-			[
-				"The tree seems safe and happy.",
-			],
-		],
-	);
-
-	if (phone) {
-
-		dpad.draw = dpad.drawImpl;
-
-	}
-
-};
-
-const draw = () => {
-	sketch.ptouches = sketch.touches;
-	player.movementControls();
-
-	// No longer works!
-	// sketch.push();
-	//
-	// sketch.translate(sketch.width * -0.5, sketch.height * -0.5);
-	// sketch.noStroke();
-	// sketch.noSmooth();
-	// sketch.fill(0, 12);
-	// sketch.rect(0, 0, sketch.width, sketch.height);
-	//
-	// sketch.pop();
-	sketch.background(0);
-
-	sketch.push();
-	// #region Camera!
-
-	// Heck, my values work exactly LIKE the defaults!
-	sketch.perspective(
-		70,
-		sketch.width / sketch.height,
-		0.01,
-		10_000
-	); // (Okay, their FOV IS different and I can't find it for some reason.)
-
-	sketch.camera(
-		player.posAngle.x, player.posAngle.y, sketch.width / 4,
-		player.posAngle.x, player.posAngle.y, 0,
-		0, 1, 0
-	);
-
-	// #region Player render.
-	sketch.push();
-	sketch.rotateZ(player.posAngle.z);
-	sketch.noStroke();
-	sketch.fill(255);
-	// console.log(`${player.posAngle.x}, ${player.posAngle.y}`);
-
-	sketch.square(
-		player.posAngle.x,
-		player.posAngle.y,
-		player.size,
-	);
-	sketch.pop();
-	// #endregion
-
-	// #region Check collisions.
-	player.idsNpcsTouched.clear();
-	let idNpcDetectedLast = 0;
-
-	for (let i = 0; i < npcs.posAngles.length; i++) {
-
-		const p = npcs.posAngles[i];
-
-		const nLeft = p.x - (20 * 0.5);
-		const nRight = p.x + (20 * 0.5);
-		const nAbove = p.y - (20 * 0.5);
-		const nBelow = p.y + (20 * 0.5);
-
-		const pLeft = player.posAngle.x - (player.size * 0.5);
-		const pRight = player.posAngle.x + (player.size * 0.5);
-		const pAbove = player.posAngle.y - (player.size * 0.5);
-		const pBelow = player.posAngle.y + (player.size * 0.5);
-
-		const overlapping = !(
-			pRight < nLeft
-			||
-			pLeft > nRight
-			||
-			pBelow < nAbove
-			||
-			pAbove > nBelow
-		);
-
-		if (overlapping) {
-
-			player.idsNpcsTouched.add(i);
-			idNpcDetectedLast = i;
-
-		}
-
-	}
-
-	if (player.idsNpcsTouched.size != 0) {
-
-		npcs.collisionResponse(idNpcDetectedLast);
-
-	}
-	else {
-
-		npcs.collisionResponse = npcs.collisionResponseOverworld;
-
-	}
-	// #endregion
-
-	// #region NPC rendering.
-	sketch.push();
-	sketch.fill(255);
-	sketch.noStroke();
-
-	for (const p of npcs.posAngles) {
-
-		sketch.push();
-
-		sketch.rotateZ(p.z);
-		sketch.square(p.x, p.y, 20);
-
-		sketch.pop();
-
-	}
-
-	sketch.pop();
-	// #endregion
-
-	// #endregion
-	sketch.pop();
-
-	// #region 2D rendering.
-	sketch.resetMatrix();
-	sketch.ortho(
-		0, sketch.width,
-		-sketch.height, 0,
-		-1000, 1000,
-	);
-
-	dialogueBox.draw();
-	dpad.draw();
-	// #endregion
-};
-
-// #endregion
-
 const sketch = new class /*Sketch*/ extends p5 {
 
 	// #region Fields.
@@ -879,22 +597,298 @@ const sketch = new class /*Sketch*/ extends p5 {
 	/** @type { WebGL2RenderingContext | WebGLRenderingContext } 	*/ gl = undefined;
 	/** @type { { x: number, y: number, id: number, }[] } 			*/ ptouches = [];
 
+	// #region Callback management.
+
+
+
 	// #endregion
 
-	constructor() {
-		super(p => p, divSketchParent);
+	// #endregion
 
-		for (const [cbck, man] of Object.entries(cbcks)) {
+	draw = () => {
 
-			this[cbck] = man.handleEvent.bind(man);
+		sketch.ptouches = sketch.touches;
+		player.movementControls.call();
+
+		// No longer works!
+		// sketch.push();
+		//
+		// sketch.translate(sketch.width * -0.5, sketch.height * -0.5);
+		// sketch.noStroke();
+		// sketch.noSmooth();
+		// sketch.fill(0, 12);
+		// sketch.rect(0, 0, sketch.width, sketch.height);
+		//
+		// sketch.pop();
+		sketch.background(0);
+
+		sketch.push();
+		// #region Camera!
+		// Heck, my values work exactly LIKE the defaults!
+		sketch.perspective(
+			70,
+			sketch.width / sketch.height,
+			0.01,
+			10000
+		); // (Okay, their FOV IS different and I can't find it for some reason.)
+
+		sketch.camera(
+			player.posAngle.x, player.posAngle.y, sketch.width / 4,
+			player.posAngle.x, player.posAngle.y, 0,
+			0, 1, 0
+		);
+
+		// #region Player render.
+		sketch.push();
+		sketch.rotateZ(player.posAngle.z);
+		sketch.noStroke();
+		sketch.fill(255);
+		// console.log(`${player.posAngle.x}, ${player.posAngle.y}`);
+		sketch.square(
+			player.posAngle.x,
+			player.posAngle.y,
+			player.size
+		);
+		sketch.pop();
+		// #endregion
+		// #region Check collisions.
+		player.idsNpcsTouched.clear();
+		let idNpcDetectedLast = 0;
+
+		for (let i = 0; i < npcs.posAngles.length; i++) {
+
+			const p = npcs.posAngles[i];
+
+			const nLeft = p.x - (20 * 0.5);
+			const nRight = p.x + (20 * 0.5);
+			const nAbove = p.y - (20 * 0.5);
+			const nBelow = p.y + (20 * 0.5);
+
+			const pLeft = player.posAngle.x - (player.size * 0.5);
+			const pRight = player.posAngle.x + (player.size * 0.5);
+			const pAbove = player.posAngle.y - (player.size * 0.5);
+			const pBelow = player.posAngle.y + (player.size * 0.5);
+
+			const overlapping = !(
+				pRight < nLeft
+				||
+				pLeft > nRight
+				||
+				pBelow < nAbove
+				||
+				pAbove > nBelow
+			);
+
+			if (overlapping) {
+
+				player.idsNpcsTouched.add(i);
+				idNpcDetectedLast = i;
+
+			}
 
 		}
 
+		if (player.idsNpcsTouched.size != 0) {
+
+			npcs.collisionResponse(idNpcDetectedLast);
+
+		}
+		else {
+
+			npcs.collisionResponse = npcs.collisionResponseOverworld;
+
+		}
+		// #endregion
+		// #region NPC rendering.
+		sketch.push();
+		sketch.fill(255);
+		sketch.noStroke();
+
+		for (const p of npcs.posAngles) {
+
+			sketch.push();
+
+			sketch.rotateZ(p.z);
+			sketch.square(p.x, p.y, 20);
+
+			sketch.pop();
+
+		}
+
+		sketch.pop();
+		// #endregion
+		// #endregion
+		sketch.pop();
+
+		// #region 2D rendering.
+		sketch.resetMatrix();
+		sketch.ortho(
+			0, sketch.width,
+			-sketch.height, 0,
+			-1000, 1000
+		);
+
+		dialogueBox.draw();
+		dpad.draw();
+		// #endregion
+	};
+
+	setup = () => {
+
+		// #region Init.
+		sketch.renderer = sketch.createCanvas(window.innerWidth, window.innerHeight, sketch.WEBGL);
+		sketch.elementCanvas = sketch.elementCanvasParent.querySelector("canvas");
+		sketch.gl = sketch.renderer.GL;
+
+		tab.resumeAttemptingFullscreenEveryPress();
+		tab.orientationLock("landscape-primary");
+		tab.resumeAttemptingResizeEveryResize();
+
+		sketch.textFont(fontSonoRegular);
+		sketch.frameRate(72);
+		// #endregion
+		npcs.collisionResponse = npcs.collisionResponseOverworld;
+
+		// `sketch::dpad::cbckTouchStarted` for control objects is added by `sketch::player::resumeAllMovementControls()`.
+		// boxStart(dpad.cbckTouchMoved); // Added by `sketch::dpad::cbckTouchStarted()`.
+		boxStart(dpad.cbckWindowResized);
+		boxStart(dpad.cbckTouchEnded);
+
+		boxStart(player.cbckTouchStarted);
+		boxStart(player.cbckKeyPressed);
+
+		dpad.base = sketch.createVector(0, 0, 35);
+		player.touchStart = sketch.createVector();
+		player.swipeBase = sketch.createVector();
+		player.posAngle = sketch.createVector();
+
+		sketch.textFont(fontSonoRegular);
+		player.resumeAllMovementControls();
+		dpad.cbckWindowResized.call();
+
+		// Lady:
+		npcs.create(
+			sketch.createVector(150, -75),
+			// All conversations:
+			[
+				// First conversation:
+				[
+					// First dialogue:
+					"Ti's a beautiful day!",
+					"Is it not for you?",
+				],
+			]
+		);
+
+		// THINGS!:
+		npcs.create(
+			sketch.createVector(0, -50),
+			[
+				[
+					"This world needs more things, THINGS!",
+				],
+			]
+		);
+
+		// SOME body needs to FIX this!:
+		npcs.create(
+			sketch.createVector(0, 50),
+			[
+				[
+					"What an empty void we live in...!",
+					"SOMEbody needs to FIX this!",
+				],
+			]
+		);
+
+		// Tree:
+		npcs.create(
+			sketch.createVector(-150, 100),
+			[
+				[
+					"This is a tree.",
+					"You watered the tree.",
+				],
+				[
+					"The tree seems safe and happy.",
+				],
+			]
+		);
+
+		if (phone) {
+
+			dpad.draw = dpad.drawImpl;
+
+		}
+
+	};
+
+	preload = () => {
+
+		sketch.loadFont("/Sono-Regular.ttf", f => fontSonoRegular = f);
+
+	};
+
+	constructor() {
+		super(p => p, divSketchParent);
 		this.elementCanvasParent = divSketchParent;
 	}
 
-	draw = draw;
-	setup = setup;
-	preload = preload;
+	keyPressed = () => {
+		boxRun([
+
+			dialogueBox.cbckKeyPressedForConvo,
+			dpad.onInputPostWindowResize,
+			player.cbckKeyPressed,
+
+		]);
+	}
+
+	mouseMoved = () => {
+		boxRun([
+
+			dpad.onInputPostWindowResize,
+
+		]);
+	}
+
+	touchEnded = () => {
+		boxRun([
+
+			dpad.cbckTouchEnded,
+
+		]);
+	}
+
+	touchStarted = () => {
+		boxRun([
+
+			tab.cbckFullscreen,
+			dpad.cbckTouchStarted,
+			player.cbckTouchStarted,
+			dialogueBox.cbckTouchStartedForConvo,
+			dpad.onTouchStartedAfterWindowResized,
+
+		]);
+	}
+
+	mousePressed = () => {
+		boxRun([
+
+			tab.cbckFullscreen,
+			dpad.onInputPostWindowResize,
+
+		]);
+	}
+
+	windowResized = () => {
+		boxRun([
+
+			tab.cbckResizeCanvas,
+			dpad.cbckWindowResized,
+
+		]);
+
+	}
 
 };
